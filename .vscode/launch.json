@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug experiment",
+            "type": "python",
+            "request": "launch",
+            "program": "experiment01.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--dataset", "MNIST",
+                "--entropy_threshold", "0.6",
+                "--run_epochs", "3",
+                "--candidate_start_epoch", "0",
+                "--tensorboard_comment", "MNIST DEBUG",
+                "--lr", "0.001",
+                "--l2", "1e-4",
+                "--batch_size", "16",
+                "--not_pretrained",
+                "--reduce_dataset"
+            ]
+        }
+    ]
+}
