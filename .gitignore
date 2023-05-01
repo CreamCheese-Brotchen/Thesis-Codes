@@ -1,6 +1,6 @@
 data/*
 runs/*
 logs/*
-*.sh
+*/*.sh
 *.tar.gz
 *.zip
