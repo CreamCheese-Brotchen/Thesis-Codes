@@ -232,7 +232,7 @@ if __name__ == '__main__':
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
 
   args = parser.parse_args()
-  print(f"Script Arguments: {args}")
+  print(f"Script Arguments: {args}", flush=True)
 
   dataset_loaders = create_dataloaders(transforms_train, transforms_test, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
 
