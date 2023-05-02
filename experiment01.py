@@ -102,7 +102,7 @@ class Trainer():
     idList_allSamples = list(flatten(current_allId_list))  
     entropy_allSamples = list(flatten(current_allEnt_list))   # flattened, a tensor list of entropy of candidates over batchs 
     loss_allSamples = list(flatten(current_allLoss_list))
-    select_Candidates = [(id,ent,loss) for (idx,ent,loss) in zip(idList_allSamples,entropy_allSamples,loss_allSamples) if ent >= self.entropy_threshold]     # search for the instances with Top k losses
+    select_Candidates = [(idx,ent,loss) for (idx,ent,loss) in zip(idList_allSamples,entropy_allSamples,loss_allSamples) if ent >= self.entropy_threshold]     # search for the instances with Top k losses
     if len(select_Candidates):
       candidates_id, candidates_entropy, candidates_loss = list(zip(*select_Candidates))                       # get the indices of instances with Top K Loss
       history_candidates_id.append(candidates_id) 
