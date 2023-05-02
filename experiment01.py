@@ -56,8 +56,8 @@ transforms_test = transforms.Compose([
 
 def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_name, add_idx, reduce_dataset=False):
   if dataset_name == 'MNIST':
-    data_train = datasets.MNIST(root = 'data', train = True, download=True, transform = transforms_train)         
-    data_test = datasets.MNIST(root = 'data', train = False, download=True, transform = transforms_test)
+    data_train = datasets.MNIST(root='data', train=True, download=True, transform=transforms_train)         
+    data_test = datasets.MNIST(root='data', train=False, download=True, transform=transforms_test)
 
   if dataset_name == 'FashionMNIST':
     data_train = datasets.FashionMNIST(root = 'data', train = True, download=True, transform = transforms_train)         
@@ -66,6 +66,10 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
   if dataset_name == 'CIFAR10': 
     data_train = datasets.CIFAR10(root = 'data', train = True, download=True, transform = transforms_train)         
     data_test = datasets.CIFAR10(root = 'data', train = False, download=True, transform = transforms_test)
+  
+  if dataset_name == 'SVHN':
+    data_train = datasets.SVHN(root = 'data', train = True, download=True, transform = transforms_train)
+    data_test = datasets.SVHN(root = 'data', train = False, download=True, transform = transforms_test)
 
   if reduce_dataset:
     data_train = data_utils.Subset(data_train, torch.arange(32))
@@ -82,6 +86,11 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
 
   return dataset_loaders
 
+
+
+#################################################################################################################
+#### Model 
+#################################################################################################################
 class Trainer():
   def __init__(self, dataloader, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, lr=0.001, l2=0):
     self.dataloader = dataloader
