@@ -229,7 +229,7 @@ class Trainer():
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
-  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST"), help='Dataset name')
+  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", 'SVHN'), help='Dataset name')
   parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=10, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
