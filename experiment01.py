@@ -25,7 +25,7 @@ from collections import Counter
 #################################################################################################################
 #### Data Loaders 
 #################################################################################################################
-# add index for the dataset by a defined class function 
+# add an unique id to every sample in the dataset
 class IndexDataset(Dataset):
     def __init__(self, Dataset):
         self.Dataset = Dataset
@@ -68,13 +68,15 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
     data_test = datasets.CIFAR10(root = 'data', train = False, download=True, transform = transforms_test)
   
   if dataset_name == 'SVHN':
-    data_train = datasets.SVHN(root = 'data', train = True, download=True, transform = transforms_train)
-    data_test = datasets.SVHN(root = 'data', train = False, download=True, transform = transforms_test)
+    data_train = datasets.SVHN(root = 'data', split='train', download=True, transform = transforms_train)
+    data_test = datasets.SVHN(root = 'data', split='test', download=True, transform = transforms_test)
 
+  # debug
   if reduce_dataset:
     data_train = data_utils.Subset(data_train, torch.arange(32))
     data_test = data_utils.Subset(data_test, torch.arange(32))
-
+ 
+  # give an unique id to every sample in the dataset to track the hard samples
   if add_idx:
       data_train = IndexDataset(data_train)
       data_test = IndexDataset(data_test)
@@ -107,7 +109,19 @@ class Trainer():
 
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, history_entropy_candidates, history_num_candidates, history_meanLoss_candidates):
-    # current_id, current_entropy, current_loss; history_id, histroy_entropy, history_meanloss, history_num
+    """Input current id/entropy/loss of all samples, output the selected candidates with entropy > threshold, and update the history of candidates
+    Args:
+        current_allId_list (list): current id list of all samples
+        current_allEnt_list (list): cuurent entropy list of all samples
+        current_allLoss_list (list): current loss list of all samples
+        history_candidates_id (list): history of candidates id collected across  epochs
+        history_entropy_candidates (list): history of candidates entropy collected across  epochs
+        history_num_candidates (list): history of candidates number collected across  epochs
+        history_meanLoss_candidates (list):  history of candidates mean loss collected across epochs
+
+    Returns:
+        _type_: update the history of candidates: id, entropy, number, mean loss, which are collected across  epochs
+    """
     idList_allSamples = list(flatten(current_allId_list))  
     entropy_allSamples = list(flatten(current_allEnt_list))   # flattened, a tensor list of entropy of candidates over batchs 
     loss_allSamples = list(flatten(current_allLoss_list))
@@ -183,6 +197,7 @@ class Trainer():
         loss_candidates_list.append(loss_individual)                        
 
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
+      writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
       if epoch >= self.start_epoch: 
         # update the history data of num/id/entropy_value of the candidates 
@@ -244,7 +259,7 @@ if __name__ == '__main__':
   print(f"Script Arguments: {args}", flush=True)
 
   dataset_loaders = create_dataloaders(transforms_train, transforms_test, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-
+  
   weights = ResNet18_Weights.DEFAULT
   if args.not_pretrained:
     weights=None
