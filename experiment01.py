@@ -120,23 +120,23 @@ class augmentation(Dataset):
 #### Simple Augmentation Methods
 #################################################################################################################
 def simpleAugmentation_selection(augmentation_name):
-  if augmentation_name == "random color":
+  if augmentation_name == "random_color":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ColorJitter(), transforms.ToTensor()])
-  elif augmentation_name == "center crop":
+  elif augmentation_name == "center_crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(150), transforms.Resize(256), transforms.ToTensor()])
-  elif augmentation_name == "gaussian blur":
+  elif augmentation_name == "gaussian_blur":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), transforms.ToTensor()])
-  elif augmentation_name == "elastic transform":
+  elif augmentation_name == "elastic_transform":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ElasticTransform(alpha=250.0), transforms.ToTensor()])
-  elif augmentation_name == "random perspective":
+  elif augmentation_name == "random_perspective":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPerspective(), transforms.ToTensor()])
-  elif augmentation_name == "random resized crop":
+  elif augmentation_name == "random_resized crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(size=150), transforms.Resize(256), transforms.ToTensor()])
-  elif augmentation_name == "random invert":
+  elif augmentation_name == "random_invert":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(), transforms.ToTensor()])  
-  elif augmentation_name == "random posterize":
+  elif augmentation_name == "random_posterize":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPosterize(bits=2), transforms.ToTensor()])
-  elif augmentation_name == "rand augment":
+  elif augmentation_name == "rand_augment":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandAugment(), transforms.ToTensor()])
   elif augmentation_name == "augmix":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.AugMix(), transforms.ToTensor()])
@@ -330,7 +330,7 @@ class Trainer():
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
-  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", 'SVHN'), help='Dataset name')
+  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN"), help='Dataset name')
   parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
@@ -340,7 +340,7 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--not_pretrained', action='store_true', help='Use randomly initialized weights instead of pretrained weights')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-  parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random color", "center crop", "gaussian blur", 'elastic transform','random perspective', 'random resized crop', 'random invert', 'random posterize', "rand augment", "augmix"), help='Simple Augmentation name')
+  parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
 
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
