@@ -72,6 +72,14 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
     data_train = datasets.SVHN(root = 'data', split='train', download=True, transform = transforms_train)
     data_test = datasets.SVHN(root = 'data', split='test', download=True, transform = transforms_test)
 
+  if dataset_name == 'Flowers102':
+    data_train = datasets.Flowers102(root='./data', split='train', download=True, transform=transforms_train)
+    data_test = datasets.Flowers102(root='./data', split='test', download=True, transform=transforms_train)
+
+  if dataset_name == 'Food101':
+    data_train = datasets.Food101(root='./data', split='train', download=True, transform=transforms_train)
+    data_test = datasets.Food101(root='./data', split='test', download=True, transform=transforms_train)
+
   # debug
   if reduce_dataset:
     data_train = data_utils.Subset(data_train, torch.arange(32))
@@ -163,7 +171,7 @@ def simpleAugmentation_selection(augmentation_name):
 #### Model 
 #################################################################################################################
 class Trainer():
-  def __init__(self, dataloader, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, augmentation_transforms, lr=0.001, l2=0, batch_size=64):
+  def __init__(self, dataloader, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, augmentation_flag, augmentation_transforms, lr=0.001, l2=0, batch_size=64):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -175,6 +183,7 @@ class Trainer():
     self.individual_loss_fn = individual_loss_fn
     self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
+    self.augmentation_flag = augmentation_flag
     self.augmentation_transforms = augmentation_transforms
     self.batch_size = batch_size
 
@@ -288,9 +297,11 @@ class Trainer():
         # augmente the candidate samples
         # self.dataloader['train']
         if len(currentEpoch_candidateId):
-          augmented_dataset = augmentation(self.dataloader['train'].dataset, currentEpoch_candidateId, self.augmentation_transforms)
-          augmented_dataset = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
-          train_dataloader = copy.deepcopy(augmented_dataset)
+          if self.augmentation_flag:
+            augmented_dataset = augmentation(self.dataloader['train'].dataset, currentEpoch_candidateId, self.augmentation_transforms)
+            augmented_dataset = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+            train_dataloader = copy.deepcopy(augmented_dataset)
+            # print("Augmenting the dataset")
 
         writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
         writer.add_scalar('Mean loss of hard samples', history_meanLoss_candidates[-1], epoch+1)
@@ -330,7 +341,7 @@ class Trainer():
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
-  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN"), help='Dataset name')
+  parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
   parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
@@ -340,6 +351,7 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--not_pretrained', action='store_true', help='Use randomly initialized weights instead of pretrained weights')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+  parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
 
   args = parser.parse_args()
@@ -356,5 +368,5 @@ if __name__ == '__main__':
   num_ftrs = resnet.fc.in_features
   resnet.fc = torch.nn.Linear(num_ftrs, 10)
   augmentation_method = simpleAugmentation_selection(args.simpleAugmentaion_name)
-  model_trainer = Trainer(dataloader=dataset_loaders, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, augmentation_transforms=augmentation_method, lr=args.lr, l2=args.l2, batch_size=args.batch_size)
+  model_trainer = Trainer(dataloader=dataset_loaders, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, augmentation_flag=args.augmentation_flag, augmentation_transforms=augmentation_method, lr=args.lr, l2=args.l2, batch_size=args.batch_size)
   model_trainer.train()
