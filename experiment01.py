@@ -301,7 +301,7 @@ class Trainer():
             augmented_dataset = augmentation(self.dataloader['train'].dataset, currentEpoch_candidateId, self.augmentation_transforms)
             augmented_dataset = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
             train_dataloader = copy.deepcopy(augmented_dataset)
-            # print("Augmenting the dataset")
+            # print("Augmenting the candidates dataset")
 
         writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
         writer.add_scalar('Mean loss of hard samples', history_meanLoss_candidates[-1], epoch+1)
@@ -362,6 +362,8 @@ if __name__ == '__main__':
   weights = ResNet18_Weights.DEFAULT
   if args.not_pretrained:
     weights=None
+  if args.augmentation_flag:
+    print("Augmenting the candidate samples")
 
   resnet = resnet18(weights=weights)
   print(f"Using weights: {'None' if weights is None else weights}", flush=True)
