@@ -289,7 +289,7 @@ if __name__ == '__main__':
       vae_trainEpochs = 1
     else: 
       vae_trainEpochs = 60 
-    vae_trainer = Trainer(max_epochs=vae_trainEpochs , accelerator=str(device), enable_progress_bar=False)
+    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=5, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     vae_trainer.tune(vae_model, dataset_loaders['train'])
     vae_trainer.fit(vae_model, dataset_loaders['train'])
     
