@@ -12,11 +12,11 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--dataset", "MNIST",
+                "--dataset", "Flowers102",
                 "--entropy_threshold", "0.6",
                 "--run_epochs", "3",
                 "--candidate_start_epoch", "0",
-                "--tensorboard_comment", "MNIST DEBUG",
+                "--tensorboard_comment", "Flowers102 DEBUG",
                 "--lr", "0.001",
                 "--l2", "1e-4",
                 "--batch_size", "16",

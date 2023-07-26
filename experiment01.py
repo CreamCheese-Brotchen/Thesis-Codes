@@ -22,156 +22,33 @@ from more_itertools import flatten
 import itertools
 from collections import Counter
 import copy
+from pytorch_lightning import LightningModule, Trainer
 
-#################################################################################################################
-#### Data Loaders 
-#################################################################################################################
-# add an unique id to every sample in the dataset
-class IndexDataset(Dataset):
-    def __init__(self, Dataset):
-        self.Dataset = Dataset
-        
-    def __getitem__(self, index):
-        data, target = self.Dataset[index]
-        
-        return data, target, index
+from dataset_loader import IndexDataset, create_dataloaders
+from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
+from VAE_model import VAE
 
-    def __len__(self):
-        return len(self.Dataset)
-    
 
-transforms_train = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
-    transforms.transforms.ToTensor(),
-    transforms.Resize(256),
-    transforms.CenterCrop(256),
-]
-)
-transforms_test = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
-    transforms.Resize(256),
-    transforms.CenterCrop(256),
-    transforms.ToTensor()
-]
-)
-
-def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_name, add_idx, reduce_dataset=False):
-  if dataset_name == 'MNIST':
-    data_train = datasets.MNIST(root='data', train=True, download=True, transform=transforms_train)         
-    data_test = datasets.MNIST(root='data', train=False, download=True, transform=transforms_test)
-
-  if dataset_name == 'FashionMNIST':
-    data_train = datasets.FashionMNIST(root = 'data', train = True, download=True, transform = transforms_train)         
-    data_test = datasets.FashionMNIST(root = 'data', train = False, download=True, transform = transforms_test)
-
-  if dataset_name == 'CIFAR10': 
-    data_train = datasets.CIFAR10(root = 'data', train = True, download=True, transform = transforms_train)         
-    data_test = datasets.CIFAR10(root = 'data', train = False, download=True, transform = transforms_test)
-  
-  if dataset_name == 'SVHN':
-    data_train = datasets.SVHN(root = 'data', split='train', download=True, transform = transforms_train)
-    data_test = datasets.SVHN(root = 'data', split='test', download=True, transform = transforms_test)
-
+def model_numClasses(dataset_name):
+  tenClasses = ['CIFAR10', 'SVHN', 'MNIST', 'FashionMNIST']
+  if dataset_name in tenClasses:
+    classes_num = 10
   if dataset_name == 'Flowers102':
-    data_train = datasets.Flowers102(root='./data', split='train', download=True, transform=transforms_train)
-    data_test = datasets.Flowers102(root='./data', split='test', download=True, transform=transforms_train)
-
+    classes_num = 102
   if dataset_name == 'Food101':
-    data_train = datasets.Food101(root='./data', split='train', download=True, transform=transforms_train)
-    data_test = datasets.Food101(root='./data', split='test', download=True, transform=transforms_train)
-
-  # debug
-  if reduce_dataset:
-    data_train = data_utils.Subset(data_train, torch.arange(32))
-    data_test = data_utils.Subset(data_test, torch.arange(32))
- 
-  # give an unique id to every sample in the dataset to track the hard samples
-  if add_idx:
-      data_train = IndexDataset(data_train)
-      data_test = IndexDataset(data_test)
-
-  dataset_loaders = {
-          'train' : torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True),
-          'test'  : torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
-          }
-
-  return dataset_loaders
-
-
-#################################################################################################################
-#### Augmented Data forming 
-#################################################################################################################
-# get the dataset, target_idx_list (hard samples' id), augmentation transform. If the id of the sample is in the target_id_list, then apply the transform to this sample 
-class augmentation(Dataset):
-    def __init__(self, dataset, target_idx_list, augmentation_transforms):
-        self.dataset = dataset
-        self.target_idx_list = target_idx_list
-        self.augmentation_transforms = augmentation_transforms
-
-    def __getitem__(self, index):
-        data, label, idx = self.dataset[index]
-
-        # Apply data augmentation based on the index being in the target index list
-        if idx in self.target_idx_list:
-            data  = self.augmentation_transforms(data)
-
-        return data, label, idx
-
-    def __len__(self):
-        return len(self.dataset)
-
-
-
-
-
-#################################################################################################################
-#### Simple Augmentation Methods
-#################################################################################################################
-def simpleAugmentation_selection(augmentation_name):
-  if augmentation_name == "random_color":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ColorJitter(), transforms.ToTensor()])
-  elif augmentation_name == "center_crop":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(150), transforms.Resize(256), transforms.ToTensor()])
-  elif augmentation_name == "gaussian_blur":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), transforms.ToTensor()])
-  elif augmentation_name == "elastic_transform":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ElasticTransform(alpha=250.0), transforms.ToTensor()])
-  elif augmentation_name == "random_perspective":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPerspective(), transforms.ToTensor()])
-  elif augmentation_name == "random_resized crop":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(size=150), transforms.Resize(256), transforms.ToTensor()])
-  elif augmentation_name == "random_invert":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(), transforms.ToTensor()])  
-  elif augmentation_name == "random_posterize":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPosterize(bits=2), transforms.ToTensor()])
-  elif augmentation_name == "rand_augment":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandAugment(), transforms.ToTensor()])
-  elif augmentation_name == "augmix":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.AugMix(), transforms.ToTensor()])
-  elif augmentation_name is None:
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), 
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-    transforms.ToTensor()
-  ])
-  else: 
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), 
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-    transforms.ToTensor()
-  ])
-  
-  return augmentation_method
+    classes_num = 101
+  return classes_num
 
 
 
 #################################################################################################################
 #### Model 
 #################################################################################################################
-class Trainer():
-  def __init__(self, dataloader, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, augmentation_flag, augmentation_transforms, lr=0.001, l2=0, batch_size=64):
+class Resnet_trainer():
+  def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
+               augmentation_flag, augmentation_type, augmentation_transforms, 
+               augmentation_model=None, model_transforms=None, 
+               lr=0.001, l2=0, batch_size=64):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -184,9 +61,13 @@ class Trainer():
     self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
     self.augmentation_flag = augmentation_flag
+    self.augmentation_type = augmentation_type
     self.augmentation_transforms = augmentation_transforms
+    self.augmentation_model = augmentation_model
+    self.model_transforms = model_transforms
     self.batch_size = batch_size
-
+    self.num_classes = num_classes
+    
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, history_entropy_candidates, history_num_candidates, history_meanLoss_candidates):
     """Input current id/entropy/loss of all samples, output the selected candidates with entropy > threshold, and update the history of candidates
@@ -245,12 +126,22 @@ class Trainer():
 
     # basic train/test loss/accuracy
     avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
-    accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=10).to(device)
+    accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
     avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
-    accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=10).to(device)
+    accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
 
     # define the training dataset
-    train_dataloader = copy.deepcopy(self.dataloader['train'])
+    print("creating augmented dataset")
+    augmented_dataset = AugmentedDataset(
+        dataset = self.dataloader['train'].dataset,
+        target_idx_list = [],
+        augmentation_type = self.augmentation_type,
+        augmentation_transforms = self.augmentation_transforms,
+        model = self.augmentation_model,
+        model_transforms = self.model_transforms
+        )
+    
+    train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
 
     # tensorboard
     writer = SummaryWriter(comment=self.tensorboard_comment)
@@ -296,12 +187,9 @@ class Trainer():
 
         # augmente the candidate samples
         # self.dataloader['train']
-        if len(currentEpoch_candidateId):
-          if self.augmentation_flag:
-            augmented_dataset = augmentation(self.dataloader['train'].dataset, currentEpoch_candidateId, self.augmentation_transforms)
-            augmented_dataset = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
-            train_dataloader = copy.deepcopy(augmented_dataset)
-            # print("Augmenting the candidates dataset")
+        if self.augmentation_flag:
+            train_dataloader.dataset.target_idx_list = currentEpoch_candidateId
+            print("Augmenting the hard samples during training")
 
         writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
         writer.add_scalar('Mean loss of hard samples', history_meanLoss_candidates[-1], epoch+1)
@@ -352,13 +240,34 @@ if __name__ == '__main__':
   parser.add_argument('--not_pretrained', action='store_true', help='Use randomly initialized weights instead of pretrained weights')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
   parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
 
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
+
+  transforms_train = transforms.Compose([
+    transforms.Grayscale(num_output_channels=3),
+    transforms.transforms.ToTensor(),
+    transforms.Resize(256),
+    transforms.CenterCrop(256),
+  ]
+  )
+  transforms_test = transforms.Compose([
+      transforms.Grayscale(num_output_channels=3),
+      transforms.Resize(256),
+      transforms.CenterCrop(256),
+      transforms.ToTensor()
+  ]
+  )
+
   dataset_loaders = create_dataloaders(transforms_train, transforms_test, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-  
+  classes_num = model_numClasses(args.dataset)
+  print(f"Number of classes: {classes_num}", flush=True)
+
+
+  #####################################################
   weights = ResNet18_Weights.DEFAULT
   if args.not_pretrained:
     weights=None
@@ -368,7 +277,36 @@ if __name__ == '__main__':
   resnet = resnet18(weights=weights)
   print(f"Using weights: {'None' if weights is None else weights}", flush=True)
   num_ftrs = resnet.fc.in_features
-  resnet.fc = torch.nn.Linear(num_ftrs, 10)
-  augmentation_method = simpleAugmentation_selection(args.simpleAugmentaion_name)
-  model_trainer = Trainer(dataloader=dataset_loaders, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, augmentation_flag=args.augmentation_flag, augmentation_transforms=augmentation_method, lr=args.lr, l2=args.l2, batch_size=args.batch_size)
+  resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
+  #####################################################
+
+  if args.augmentation_type == "vae":
+    print('using vae augmentation')
+    input_height = 256
+    vae_model = VAE(input_height=input_height)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.reduce_dataset:
+      vae_trainEpochs = 1
+    else: 
+      vae_trainEpochs = 60 
+    vae_trainer = Trainer(max_epochs=vae_trainEpochs , accelerator=str(device), enable_progress_bar=False)
+    vae_trainer.tune(vae_model, dataset_loaders['train'])
+    vae_trainer.fit(vae_model, dataset_loaders['train'])
+    
+    # train resnet with vae augmentation
+    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, 
+                                 model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, 
+                                 augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
+                                 augmentation_transforms=vae_augmentation, 
+                                 augmentation_model=vae_model, model_transforms=vae_trainer, # augmentation_model=vae, model_transforms=vae_trainer (pass a Trainer of VAE)
+                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size)
+  else: 
+    # when simple augmentation is wanted, apply the func simpleAugmentation_selection 
+    simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentaion_name)
+    # augmentation_method: {simpleAugmentation_selection, }
+    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, 
+                                 model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, 
+                                 augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
+                                 augmentation_transforms=simpleAugmentation_method, 
+                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size)
   model_trainer.train()
