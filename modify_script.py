@@ -2,16 +2,16 @@ import argparse
 
 def create_new_sh_content(args):
     new_sh_content = f'''#!/usr/bin/env bash
-    #SBATCH --job-name=experiment
-    #SBATCH --output=experiment%j.log
-    #SBATCH --error=experiment%j.err
-    #SBATCH --mail-user=liang@uni-hildesheim.de
-    #SBATCH --mail-type=ALL
-    #SBATCH --partition=STUD
-    #SBATCH --gres=gpu:1
+#SBATCH --job-name=experiment
+#SBATCH --output=experiment%j.log
+#SBATCH --error=experiment%j.err
+#SBATCH --mail-user=liang@uni-hildesheim.de
+#SBATCH --mail-type=ALL
+#SBATCH --partition=STUD
+#SBATCH --gres=gpu:1
 
-    source activate toyEnv
-    srun python experiment01.py \\
+source activate toyEnv
+srun python experiment01.py \\
     --dataset {args.dataset} \\
     --entropy_threshold {args.entropy_threshold} \\
     --run_epochs {args.run_epochs} \\
@@ -26,7 +26,6 @@ def create_new_sh_content(args):
     {"--augmentation_type " + args.augmentation_type if args.augmentation_type else ""} \\
     {"--simpleAugmentaion_name " + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
 '''
-
     return new_sh_content
 
 if __name__ == '__main__':
