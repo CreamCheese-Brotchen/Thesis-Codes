@@ -1,4 +1,5 @@
 import argparse
+import os
 
 def create_new_sh_content(args):
     new_sh_content = f'''#!/usr/bin/env bash
@@ -51,4 +52,13 @@ if __name__ == '__main__':
     with open('new_testScript.sh', 'w') as file:
         file.write(new_sh_content)
     print(f"Updated the content of 'new_testScript.sh'")
+
+    # Submit the generated script using sbatch
+    os.system('sbatch new_testScript.sh')
+    print("submitted new_testScript.sh")
+
+    # Delete the script file after submission
+    os.remove('new_testScript.sh')
+    print("deleted the new_testScript.sh after submission.")
+
 
