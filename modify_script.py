@@ -11,7 +11,7 @@ def create_new_sh_content(args):
 #SBATCH --gres=gpu:1
 
 source activate toyEnv
-srun python experiment01.py \\
+srun python exp.py \\
     --dataset {args.dataset} \\
     --entropy_threshold {args.entropy_threshold} \\
     --run_epochs {args.run_epochs} \\
