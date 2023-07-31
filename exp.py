@@ -48,7 +48,7 @@ class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
                augmentation_flag, augmentation_type, augmentation_transforms, 
                augmentation_model=None, model_transforms=None, 
-               lr=0.001, l2=0, batch_size=64):
+               lr=0.001, l2=0, batch_size=64, accumulation_steps=10):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -67,6 +67,7 @@ class Resnet_trainer():
     self.model_transforms = model_transforms
     self.batch_size = batch_size
     self.num_classes = num_classes
+    self.accumulation_steps  = accumulation_steps # gradient accumulation steps
     
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, history_entropy_candidates, history_num_candidates, history_meanLoss_candidates):
@@ -157,13 +158,21 @@ class Resnet_trainer():
       for i, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
-        self.optimizer.zero_grad()
         output_logits = self.model(img_tensor)
         loss_val = self.loss_fn(output_logits, label_tensor)
         loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
         loss_val.backward()
+        if (i + 1) % self.accumulation_steps == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            print('perform accumulation step')
+
+      #  Perform an optimization step for the remaining accumulated gradients (if any)
+      if (i + 1) % self.accumulation_steps != 0:
         self.optimizer.step()
+        self.optimizer.zero_grad()
+        print('perform accumulation step for the remaining batch')
 
         # update the loss&accuracy during training
         avg_loss_metric_train.update(loss_val)
@@ -208,7 +217,7 @@ class Resnet_trainer():
       train_loss.append(avg_loss_metric_train.compute().cpu().numpy())
       test_loss.append(avg_loss_metric_test.compute().cpu().numpy())
       train_accuracy.append(accuracy_metric_train.compute().cpu().numpy())
-      print('len(train accuracy) per epoch ', len(train_accuracy), train_accuracy[-1])
+      # print('len(train accuracy) per epoch ', len(train_accuracy), train_accuracy[-1])
       test_accuracy.append(accuracy_metric_test.compute().cpu().numpy())
       print('Epoch[{}/{}]: loss_train={:.4f}, loss_test={:.4f},  accuracy_train={:.3f}, accuracy_test={:.3f}'.format(epoch+1, self.run_epochs,
                                                                                                                     train_loss[-1], test_loss[-1],
@@ -243,7 +252,7 @@ if __name__ == '__main__':
   parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-
+  parser.add_argument('--accumulation_steps', type=int, default=10, help='Number of accumulation steps')
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
@@ -272,13 +281,15 @@ if __name__ == '__main__':
   weights = ResNet18_Weights.DEFAULT
   if args.not_pretrained:
     weights=None
-  if args.augmentation_flag:
-    print("Augmenting the candidate samples")
+    resnet = resnet18(weights=weights)
+    print(f"Using weights: {'None' if weights is None else weights}", flush=True)
+    num_ftrs = resnet.fc.in_features
+    resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
+  else:
+    resnet = resnet18(num_classes=classes_num, pretrained=False)
 
-  resnet = resnet18(weights=weights)
-  print(f"Using weights: {'None' if weights is None else weights}", flush=True)
-  num_ftrs = resnet.fc.in_features
-  resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
+  if args.augmentation_flag:
+    print("Do Augmentation in this experiment")
   #####################################################
 
   if args.augmentation_type == "vae":
@@ -300,7 +311,7 @@ if __name__ == '__main__':
                                  augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
                                  augmentation_transforms=vae_augmentation, 
                                  augmentation_model=vae_model, model_transforms=vae_trainer, # augmentation_model=vae, model_transforms=vae_trainer (pass a Trainer of VAE)
-                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size)
+                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulate_steps)
   else: 
     # when simple augmentation is wanted, apply the func simpleAugmentation_selection 
     simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentaion_name)
@@ -309,5 +320,5 @@ if __name__ == '__main__':
                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, 
                                  augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
                                  augmentation_transforms=simpleAugmentation_method, 
-                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size)
+                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps)
   model_trainer.train()

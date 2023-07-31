@@ -8,7 +8,7 @@
             "name": "Debug experiment",
             "type": "python",
             "request": "launch",
-            "program": "experiment01.py",
+            "program": "exp.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
