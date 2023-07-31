@@ -48,7 +48,7 @@ class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
                augmentation_flag, augmentation_type, augmentation_transforms, 
                augmentation_model=None, model_transforms=None, 
-               lr=0.001, l2=0, batch_size=64, accumulation_steps=10):
+               lr=0.001, l2=0, batch_size=64, accumulation_steps=20):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -252,7 +252,7 @@ if __name__ == '__main__':
   parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-  parser.add_argument('--accumulation_steps', type=int, default=10, help='Number of accumulation steps')
+  parser.add_argument('--accumulation_steps', type=int, default=20, help='Number of accumulation steps')
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 

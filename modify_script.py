@@ -21,6 +21,7 @@ srun python exp.py \\
     --lr {args.lr} \\
     --l2 {args.l2} \\
     --batch_size {args.batch_size} \\
+    --accumulation_steps {args.accumulation_steps} \\
     {"--not_pretrained" if args.not_pretrained else ""} \\
     {"--reduce_dataset" if args.reduce_dataset else ""} \\
     {"--augmentation_flag" if args.augmentation_flag else ""} \\
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
     parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
     parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-
+    parser.add_argument('--accumulation_steps', type=int, default=20, help='Number of accumulation steps')
     args = parser.parse_args()
 
     new_sh_content = create_new_sh_content(args)
