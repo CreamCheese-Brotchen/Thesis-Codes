@@ -48,7 +48,7 @@ class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
                augmentation_flag, augmentation_type, augmentation_transforms, 
                augmentation_model=None, model_transforms=None, 
-               lr=0.001, l2=0, batch_size=64, accumulation_steps=20):
+               lr=0.001, l2=0, batch_size=64, accumulation_steps=2):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -162,6 +162,14 @@ class Resnet_trainer():
         loss_val = self.loss_fn(output_logits, label_tensor)
         loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
+        # update the loss&accuracy during training
+        avg_loss_metric_train.update(loss_val)
+        accuracy_metric_train.update(output_logits, label_tensor)
+        # update the entropy of samples cross iterations
+        entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
+        id_list.append(id)                                                  # record the id order of samples at this iter
+        loss_candidates_list.append(loss_individual)
+
         loss_val.backward()
         if (i + 1) % self.accumulation_steps == 0:
             self.optimizer.step()
@@ -174,13 +182,6 @@ class Resnet_trainer():
         self.optimizer.zero_grad()
         print('perform accumulation step for the remaining batch')
 
-        # update the loss&accuracy during training
-        avg_loss_metric_train.update(loss_val)
-        accuracy_metric_train.update(output_logits, label_tensor)
-        # update the entropy of samples cross iterations
-        entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
-        id_list.append(id)                                                  # record the id order of samples at this iter
-        loss_candidates_list.append(loss_individual)
 
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
       writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
@@ -251,8 +252,10 @@ if __name__ == '__main__':
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
   parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
-  parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "elastic_transform", "random_perspective", "random_resized_crop", "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-  parser.add_argument('--accumulation_steps', type=int, default=20, help='Number of accumulation steps')
+  parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
+                                                                                   "elastic_transform", "random_perspective", "random_resized_crop", 
+                                                                                   "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
+  parser.add_argument('--accumulation_steps', type=int, default=2, help='Number of accumulation steps')
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
@@ -301,7 +304,7 @@ if __name__ == '__main__':
       vae_trainEpochs = 1
     else: 
       vae_trainEpochs = 60 
-    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=5, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
+    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.accumulation_steps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     vae_trainer.tune(vae_model, dataset_loaders['train'])
     vae_trainer.fit(vae_model, dataset_loaders['train'])
     
@@ -311,7 +314,7 @@ if __name__ == '__main__':
                                  augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
                                  augmentation_transforms=vae_augmentation, 
                                  augmentation_model=vae_model, model_transforms=vae_trainer, # augmentation_model=vae, model_transforms=vae_trainer (pass a Trainer of VAE)
-                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulate_steps)
+                                 lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps)
   else: 
     # when simple augmentation is wanted, apply the func simpleAugmentation_selection 
     simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentaion_name)
