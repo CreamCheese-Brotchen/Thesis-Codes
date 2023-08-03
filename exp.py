@@ -169,18 +169,22 @@ class Resnet_trainer():
         id_list.append(id)                                                  # record the id order of samples at this iter
         loss_candidates_list.append(loss_individual)
 
-
-        # modify the loss function to be the mean loss of the accumulated gradients
-        accum_loss_val = loss_val / self.accumulation_steps
-        accum_loss_val.backward()
-        if (i + 1) % self.accumulation_steps == 0:
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+        if self.accumulation_steps:
+          accum_loss_val = loss_val / self.accumulation_steps
+          accum_loss_val.backward()
+          if (i + 1) % self.accumulation_steps == 0:
+              self.optimizer.step()
+              self.optimizer.zero_grad()
+        else:
+          loss_val.backward()
+          self.optimizer.step()
+          self.optimizer.zero_grad()
 
       #  Perform an optimization step for the remaining accumulated gradients (if any)
-      if (i + 1) % self.accumulation_steps != 0:
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+      if self.accumulation_steps:
+        if (i + 1) % self.accumulation_steps != 0:
+          self.optimizer.step()
+          self.optimizer.zero_grad()
 
 
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
@@ -254,7 +258,8 @@ if __name__ == '__main__':
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-  parser.add_argument('--accumulation_steps', type=int, default=2, help='Number of accumulation steps')
+  parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
+  parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
@@ -303,7 +308,7 @@ if __name__ == '__main__':
       vae_trainEpochs = 1
     else: 
       vae_trainEpochs = 60 
-    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.accumulation_steps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
+    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     vae_trainer.tune(vae_model, dataset_loaders['train'])
     vae_trainer.fit(vae_model, dataset_loaders['train'])
     
