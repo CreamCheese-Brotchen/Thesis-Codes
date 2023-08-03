@@ -175,6 +175,7 @@ class Resnet_trainer():
           if (i + 1) % self.accumulation_steps == 0:
               self.optimizer.step()
               self.optimizer.zero_grad()
+              print("perform accumulation step")
         else:
           loss_val.backward()
           self.optimizer.step()
@@ -205,7 +206,8 @@ class Resnet_trainer():
             train_dataloader.dataset.target_idx_list = currentEpoch_candidateId
             print("Augmenting the hard samples during training")
 
-        writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
+        # writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
+        writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
         writer.add_scalar('Mean loss of hard samples', history_meanLoss_candidates[-1], epoch+1)
 
       self.model.eval()
