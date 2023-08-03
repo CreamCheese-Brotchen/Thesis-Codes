@@ -153,25 +153,4 @@ class VAE(LightningModule):
 
 
     
-    # def add_model_specific_args(parent_parser):
-    #     parser = ArgumentParser(parents=[parent_parser], add_help=False)
-
-    #     parser.add_argument("--enc_type", type=str, default="resnet18", help="resnet18/resnet50")
-    #     parser.add_argument("--first_conv", action="store_true")
-    #     parser.add_argument("--maxpool1", action="store_true")
-    #     parser.add_argument("--lr", type=float, default=1e-4)
-
-    #     parser.add_argument(
-    #         "--enc_out_dim",
-    #         type=int,
-    #         default=512,
-    #         help="512 for resnet18, 2048 for bigger resnets, adjust for wider resnets",
-    #     )
-    #     parser.add_argument("--kl_coeff", type=float, default=0.1)
-    #     parser.add_argument("--latent_dim", type=int, default=256)
-
-    #     parser.add_argument("--batch_size", type=int, default=256)
-    #     parser.add_argument("--num_workers", type=int, default=8)
-    #     parser.add_argument("--data_dir", type=str, default=".")
-
-    #     return parser
+ 

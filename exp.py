@@ -46,7 +46,7 @@ def model_numClasses(dataset_name):
 #################################################################################################################
 class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
-               augmentation_flag, augmentation_type, augmentation_transforms, 
+               augmentation_type, augmentation_transforms, 
                augmentation_model=None, model_transforms=None, 
                lr=0.001, l2=0, batch_size=64, accumulation_steps=2):
     self.dataloader = dataloader
@@ -60,7 +60,6 @@ class Resnet_trainer():
     self.individual_loss_fn = individual_loss_fn
     self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
-    self.augmentation_flag = augmentation_flag
     self.augmentation_type = augmentation_type
     self.augmentation_transforms = augmentation_transforms
     self.augmentation_model = augmentation_model
@@ -177,13 +176,11 @@ class Resnet_trainer():
         if (i + 1) % self.accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
-            print('perform accumulation step')
 
       #  Perform an optimization step for the remaining accumulated gradients (if any)
       if (i + 1) % self.accumulation_steps != 0:
         self.optimizer.step()
         self.optimizer.zero_grad()
-        print('perform accumulation step for the remaining batch')
 
 
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
@@ -200,7 +197,7 @@ class Resnet_trainer():
 
         # augmente the candidate samples
         # self.dataloader['train']
-        if self.augmentation_flag:
+        if self.augmentation_type:
             train_dataloader.dataset.target_idx_list = currentEpoch_candidateId
             print("Augmenting the hard samples during training")
 
@@ -253,7 +250,6 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--not_pretrained', action='store_true', help='Use randomly initialized weights instead of pretrained weights')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-  parser.add_argument('--augmentation_flag', action='store_true', help='Not augmenting the candidate samples')
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
   parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
@@ -294,7 +290,7 @@ if __name__ == '__main__':
   else:
     resnet = resnet18(num_classes=classes_num, pretrained=False)
 
-  if args.augmentation_flag:
+  if args.augmentation_type:
     print("Do Augmentation in this experiment")
   #####################################################
 
@@ -314,7 +310,7 @@ if __name__ == '__main__':
     # train resnet with vae augmentation
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, 
                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, 
-                                 augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
+                                 augmentation_type=args.augmentation_type, 
                                  augmentation_transforms=vae_augmentation, 
                                  augmentation_model=vae_model, model_transforms=vae_trainer, # augmentation_model=vae, model_transforms=vae_trainer (pass a Trainer of VAE)
                                  lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps)
@@ -324,7 +320,7 @@ if __name__ == '__main__':
     # augmentation_method: {simpleAugmentation_selection, }
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch, 
                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment, 
-                                 augmentation_flag=args.augmentation_flag, augmentation_type=args.augmentation_type, 
+                                 augmentation_type=args.augmentation_type, 
                                  augmentation_transforms=simpleAugmentation_method, 
                                  lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps)
   model_trainer.train()
