@@ -170,7 +170,10 @@ class Resnet_trainer():
         id_list.append(id)                                                  # record the id order of samples at this iter
         loss_candidates_list.append(loss_individual)
 
-        loss_val.backward()
+
+        # modify the loss function to be the mean loss of the accumulated gradients
+        accum_loss_val = loss_val / self.accumulation_steps
+        accum_loss_val.backward()
         if (i + 1) % self.accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
