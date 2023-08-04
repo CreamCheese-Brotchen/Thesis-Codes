@@ -49,10 +49,10 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
-            print('vae augmentation')
+            # print('vae augmentation')
           else:
             data  = self.augmentation_transforms(data)
-            print('simple augmentation')
+            # print('simple augmentation')
 
         return data, label, idx
 
