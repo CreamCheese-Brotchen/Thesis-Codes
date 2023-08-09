@@ -55,11 +55,13 @@ if __name__ == '__main__':
     print(f"Updated the content of 'new_testScript.sh'")
 
     # Submit the generated script using sbatch
-    os.system('sbatch new_testScript.sh')
+    job_script = "sbatch new_testScript.sh"
+    command = f"sbatch {job_script}"
+    os.system(command)
     print("submitted new_testScript.sh")
 
     # Delete the script file after submission
-    os.remove('new_testScript.sh')
+    os.remove(job_script)
     print("deleted the new_testScript.sh after submission.")
 
 

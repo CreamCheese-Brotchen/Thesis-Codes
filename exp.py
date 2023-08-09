@@ -46,7 +46,7 @@ def model_numClasses(dataset_name):
 #################################################################################################################
 class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
-               augmentation_type, augmentation_transforms, 
+               augmentation_type=None, augmentation_transforms=None, 
                augmentation_model=None, model_transforms=None, 
                lr=0.001, l2=0, batch_size=64, accumulation_steps=2):
     self.dataloader = dataloader
