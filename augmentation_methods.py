@@ -33,26 +33,37 @@ from VAE_model import VAE
 
 #################################################################################################################
 class AugmentedDataset(Dataset):
-    def __init__(self, dataset, target_idx_list, augmentation_transforms, augmentation_type, model=None, model_transforms=None):
+    def __init__(self, dataset, target_idx_list, augmentation_transforms, 
+                 augmentation_type, model=None, model_transforms=None,
+                 tensorboard_epoch=None, tf_writer=None):
         self.dataset = dataset
         self.target_idx_list = target_idx_list
         self.augmentation_transforms = augmentation_transforms
         self.augmentation_type = augmentation_type
         self.model = model
         self.model_transforms = model_transforms
+        self.tensorboard_epoch =  tensorboard_epoch
+        self.tf_writer = tf_writer
 
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
-        # print(f"retrieving data at idx {index}")
 
         # Apply data augmentation based on the index being in the target index list
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
+            original_data = data
             data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             # print('vae augmentation')
-          else:
+          if self.augmentation_type == 'simple':
+            original_data = data
             data  = self.augmentation_transforms(data)
             # print('simple augmentation')
+
+          if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+            if idx in self.target_idx_list[-1]:
+              print(self.target_idx_list[-1])
+              combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+              self.tf_writer.add_image('original & augmented imgs', combined_image, self.tensorboard_epoch)
 
         return data, label, idx
 

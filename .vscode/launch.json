@@ -8,20 +8,21 @@
             "name": "Debug experiment",
             "type": "python",
             "request": "launch",
-            "program": "exp.py",
+            "program": "exp.py", // Change this to the file you want to debug
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--dataset", "Flowers102",
+                "--dataset", "CIFAR10",
                 "--entropy_threshold", "0.6",
                 "--run_epochs", "3",
                 "--candidate_start_epoch", "0",
-                "--tensorboard_comment", "Flowers102 DEBUG",
+                "--tensorboard_comment", "cifar10 DEBUG",
                 "--lr", "0.001",
                 "--l2", "1e-4",
-                "--batch_size", "16",
+                "--batch_size", "8",
                 "--not_pretrained",
-                "--reduce_dataset"
+                "--reduce_dataset",
+                "--accumulation_steps", "2",
             ]
         }
     ]

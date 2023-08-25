@@ -45,10 +45,13 @@ def model_numClasses(dataset_name):
 #### Model 
 #################################################################################################################
 class Resnet_trainer():
-  def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
+  def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, 
+               loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
                augmentation_type=None, augmentation_transforms=None, 
                augmentation_model=None, model_transforms=None, 
-               lr=0.001, l2=0, batch_size=64, accumulation_steps=2):
+               lr=0.001, l2=0, batch_size=64, accumulation_steps=2, 
+               k_epcoh_selection=None,
+               augmente_epochs=None):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -67,7 +70,9 @@ class Resnet_trainer():
     self.batch_size = batch_size
     self.num_classes = num_classes
     self.accumulation_steps  = accumulation_steps # gradient accumulation steps
-    
+    self.augmente_epochs = augmente_epochs  # number of epochs for augmentation, list [20, 30, ...., 90]
+    self.k_epcoh_selection = k_epcoh_selection
+     
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, history_entropy_candidates, history_num_candidates, history_meanLoss_candidates):
     """Input current id/entropy/loss of all samples, output the selected candidates with entropy > threshold, and update the history of candidates
@@ -91,7 +96,6 @@ class Resnet_trainer():
       candidates_id, candidates_entropy, candidates_loss = list(zip(*select_Candidates))                       # get the indices of instances with Top K Loss
       history_candidates_id.append(candidates_id)
       history_num_candidates.append(len(candidates_id))
-      print(f"{len(candidates_id)} candidates at this epoch")
       history_entropy_candidates.append(candidates_entropy)
       candidates_loss_cpu = [loss.cpu().detach().numpy() for loss in candidates_loss]
       history_meanLoss_candidates.append(np.mean(candidates_loss_cpu))
@@ -105,6 +109,22 @@ class Resnet_trainer():
 
     return history_num_candidates, history_meanLoss_candidates, history_candidates_id, history_entropy_candidates, candidates_id
 
+
+  def k_selection(self, history_candidates_id, k):
+    lists_dict = {}
+    for i in range(k):
+      list_name = f"list_{i}"
+      lists_dict[list_name] = set(history_candidates_id[-(i+1)])
+
+    common_id = None
+    for j in range(k):
+      t1 = list(lists_dict.items())[j:]
+      common_id = set.intersection(*dict(t1).values())
+      # print(j, common_id)
+      if common_id:
+        break    
+    return common_id
+      
 
   def train(self):
     # basic train/test loss/accuracy
@@ -154,11 +174,12 @@ class Resnet_trainer():
       loss_candidates_list = list() # loss of all samples at each epoch
 
 
-      for i, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
         output_logits = self.model(img_tensor)
         loss_val = self.loss_fn(output_logits, label_tensor)
+        # print("len(loss_val) ", len(loss_val))
         loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
         # update the loss&accuracy during training
@@ -170,45 +191,60 @@ class Resnet_trainer():
         loss_candidates_list.append(loss_individual)
 
         if self.accumulation_steps:
-          accum_loss_val = loss_val / self.accumulation_steps
-          accum_loss_val.backward()
-          if (i + 1) % self.accumulation_steps == 0:
+          loss_val = loss_val / self.accumulation_steps
+          loss_val.backward()
+          if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
+              print('performing gradient update')
               self.optimizer.step()
               self.optimizer.zero_grad()
-              # print("perform accumulation step")
         else:
           loss_val.backward()
           self.optimizer.step()
           self.optimizer.zero_grad()
 
-      #  Perform an optimization step for the remaining accumulated gradients (if any)
-      if self.accumulation_steps:
-        if (i + 1) % self.accumulation_steps != 0:
-          self.optimizer.step()
-          self.optimizer.zero_grad()
-
-
+      # End of iteration -- running over once all data in the dataloader
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
       writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
-      if epoch >= self.start_epoch:
-        # update the history data of num/id/entropy_value of the candidates
+      # start to collect the hard samples infos at the first epoch
                                                                                             # current_allId_list, current_allEnt_list, current_allLoss_list
-        history_num_candidates, history_meanLoss_candidates, _, _, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=loss_candidates_list,
+      history_num_candidates, history_meanLoss_candidates, history_candidates_id, _, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=loss_candidates_list,
                                                                                             # history_candidates_id, history_entropy_candidates
                                                                                               history_candidates_id=history_candidates_id, history_entropy_candidates=history_entropy_candidates,
                                                                                             # history_num_candidates, history_meanLoss_candidates
                                                                                               history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates)
-
-        # augmente the candidate samples
-        # self.dataloader['train']
-        if self.augmentation_type:
-            train_dataloader.dataset.target_idx_list = currentEpoch_candidateId
-            # print("Augmenting the hard samples during training")
-
-        # writer.add_scalar('Number of hard samples', history_num_candidates[-1], epoch+1)
+      # but only start to add them to the tensorboard at the start_epoch
+      if epoch >= self.start_epoch:
+        print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
         writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
         writer.add_scalar('Mean loss of hard samples', history_meanLoss_candidates[-1], epoch+1)
+      
+      if self.augmentation_type:
+          # if !debug (epchs>20), train the augmented dataset for every 10 epochs, else train for every 1 epoch
+          if self.run_epochs > 20:
+            if self.augmente_epochs is None:
+              self.augmente_epochs =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs, augment the dataset
+          else:
+            self.augmente_epochs =  np.arange(self.start_epoch, self.run_epochs, 1)  # every 1 epochs, augment the dataset
+          
+          
+          if epoch in self.augmente_epochs:
+            if self.k_epcoh_selection:
+              k_epoch_candidateId = self.k_selection(history_candidates_id=history_candidates_id, k=self.k_epcoh_selection)  # select the common candidates from the last 3 epochs
+              if len(k_epoch_candidateId) != 0:
+                augmemtation_id = k_epoch_candidateId
+              else:
+                augmemtation_id = currentEpoch_candidateId
+            else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
+              augmemtation_id = currentEpoch_candidateId
+          
+            train_dataloader.dataset.target_idx_list = augmemtation_id
+            train_dataloader.dataset.tensorboard_epoch = epoch+1
+            train_dataloader.dataset.tf_writer = writer
+
+
+            # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
+
 
       self.model.eval()
       for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
@@ -233,7 +269,7 @@ class Resnet_trainer():
       writer.add_scalar('Loss/test', test_loss[-1], epoch+1)
       writer.add_scalar('Accuracy/train', train_accuracy[-1], epoch+1)
       writer.add_scalar('Accuracy/test', test_accuracy[-1], epoch+1)
-
+    
 
     avg_loss_metric_train.reset()
     accuracy_metric_train.reset()
@@ -262,22 +298,22 @@ if __name__ == '__main__':
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
+  parser.add_argument('--k_epcoh_selection', type=int, default=None, help='Number of epochs to select the common candidates')
+  parser.add_argument('--augmente_epochs', type=list, default=None, help='Number of epochs to train VAE')
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
 
+  mean = (0.5, 0.5, 0.5)
+  std = (0.5, 0.5, 0.5) 
   transforms_train = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
     transforms.transforms.ToTensor(),
-    transforms.Resize(256),
-    transforms.CenterCrop(256),
+    transforms.Normalize(mean, std),
   ]
   )
   transforms_test = transforms.Compose([
-      transforms.Grayscale(num_output_channels=3),
-      transforms.Resize(256),
-      transforms.CenterCrop(256),
-      transforms.ToTensor()
+    transforms.transforms.ToTensor(),
+    transforms.Normalize(mean, std),
   ]
   )
 
@@ -292,6 +328,10 @@ if __name__ == '__main__':
     weights=None
     resnet = resnet18(weights=weights)
     print(f"Using weights: {'None' if weights is None else weights}", flush=True)
+    if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)  # change initial kernel_size to 3
+    else:
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False)
     num_ftrs = resnet.fc.in_features
     resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
   else:
