@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--dataset", "CIFAR10",
+                "--dataset", "Food101",
                 "--entropy_threshold", "0.6",
                 "--run_epochs", "3",
                 "--candidate_start_epoch", "0",

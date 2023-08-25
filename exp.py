@@ -179,7 +179,6 @@ class Resnet_trainer():
         label_tensor = Variable(label_tensor).to(device)
         output_logits = self.model(img_tensor)
         loss_val = self.loss_fn(output_logits, label_tensor)
-        # print("len(loss_val) ", len(loss_val))
         loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
         # update the loss&accuracy during training
@@ -194,7 +193,7 @@ class Resnet_trainer():
           loss_val = loss_val / self.accumulation_steps
           loss_val.backward()
           if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
-              print('performing gradient update')
+              # print('performing gradient update')
               self.optimizer.step()
               self.optimizer.zero_grad()
         else:
@@ -304,20 +303,24 @@ if __name__ == '__main__':
   print(f"Script Arguments: {args}", flush=True)
 
 
-  mean = (0.5, 0.5, 0.5)
-  std = (0.5, 0.5, 0.5) 
-  transforms_train = transforms.Compose([
-    transforms.transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-  ]
-  )
-  transforms_test = transforms.Compose([
-    transforms.transforms.ToTensor(),
-    transforms.Normalize(mean, std),
-  ]
-  )
 
-  dataset_loaders = create_dataloaders(transforms_train, transforms_test, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+  if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
+    mean = (0.5, 0.5, 0.5)
+    std = (0.5, 0.5, 0.5) 
+    transforms_smallSize = transforms.Compose([
+      transforms.Resize((32, 32)),
+      transforms.transforms.ToTensor(),
+      transforms.Normalize(mean, std),])
+    dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+  else:
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+    transforms_largSize= transforms.Compose([
+    transforms.Resize((299, 299)),
+    transforms.transforms.ToTensor(),
+    transforms.Normalize(mean, std),])
+    dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+  
   classes_num = model_numClasses(args.dataset)
   print(f"Number of classes: {classes_num}", flush=True)
 
@@ -331,7 +334,7 @@ if __name__ == '__main__':
     if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
       resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)  # change initial kernel_size to 3
     else:
-      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False)
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=3, bias=False)
     num_ftrs = resnet.fc.in_features
     resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
   else:
