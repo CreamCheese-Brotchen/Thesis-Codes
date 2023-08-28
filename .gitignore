@@ -6,3 +6,4 @@ __pycache__/*
 */*.sh
 *.tar.gz
 *.zip
+might_useful_code.py

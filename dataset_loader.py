@@ -64,3 +64,14 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
           }
 
   return dataset_loaders
+
+
+def model_numClasses(dataset_name):
+  tenClasses = ['CIFAR10', 'SVHN', 'MNIST', 'FashionMNIST']
+  if dataset_name in tenClasses:
+    classes_num = 10
+  if dataset_name == 'Flowers102':
+    classes_num = 102
+  if dataset_name == 'Food101':
+    classes_num = 101
+  return classes_num
