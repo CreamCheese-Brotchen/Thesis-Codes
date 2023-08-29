@@ -28,9 +28,8 @@ from dataset_loader import IndexDataset, create_dataloaders
 from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
 from VAE_model import VAE
 
-from memory_profiler import profile
-
-import sys 
+# from memory_profiler import profile
+# import sys 
 
 
 
@@ -108,12 +107,16 @@ class Resnet_trainer():
 
   def commonId_k_epochSelection(self, history_candidates_id, k):
     lists_dict = {}
-    for i in range(k):
+    if len(history_candidates_id) < k:
+      previousEpoch_selection = len(history_candidates_id)
+    else:
+      previousEpoch_selection = k
+    for i in range(previousEpoch_selection):
       list_name = f"list_{i}"
       lists_dict[list_name] = set(history_candidates_id[-(i+1)])
 
     common_id = None
-    for j in range(k):
+    for j in range(len(lists_dict)):
       t1 = list(lists_dict.items())[j:]
       common_id = set.intersection(*dict(t1).values())
       # print(j, common_id)
@@ -147,7 +150,9 @@ class Resnet_trainer():
         augmentation_type = self.augmentation_type,
         augmentation_transforms = self.augmentation_transforms,
         model = self.augmentation_model,
-        model_transforms = self.model_transforms
+        model_transforms = self.model_transforms,
+        tensorboard_epoch = [],  # NEW
+        tf_writer = []
         )
     
     train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
@@ -210,7 +215,7 @@ class Resnet_trainer():
                                                                                               history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates)
       # but only start to add them to the tensorboard at the start_epoch
       if epoch >= self.start_epoch:
-        print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
+        # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
         writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
         writer.add_scalar('Mean loss of hard samples', currentEpoch_lossCandidate, epoch+1)
       
@@ -228,20 +233,22 @@ class Resnet_trainer():
               k_epoch_candidateId = self.commonId_k_epochSelection(history_candidates_id=history_candidates_id, k=self.k_epoch_sampleSelection)  # select the common candidates from the last 3 epochs
               if len(k_epoch_candidateId) != 0:
                 augmemtation_id = k_epoch_candidateId
-                print(f"epoch {epoch} :len(common_id) {len(augmemtation_id)}")
+                print(f"{len(augmemtation_id)} common_ids at epoch {epoch+1}")
               else:
                 augmemtation_id = currentEpoch_candidateId
-                print(f"epoch {epoch} no common_id in the previous k epochs")
+                # print(f"no common_id in the previous k epochs")
             else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
               augmemtation_id = currentEpoch_candidateId
             
             # remain the same augmented dataset for the next 10 epochs
-            train_dataloader.dataset.target_idx_list = augmemtation_id
-            train_dataloader.dataset.tensorboard_epoch = epoch+1
-            train_dataloader.dataset.tf_writer = writer
-          else:
-            print(f"no augmentation at {epoch} epoch")
 
+            augmented_dataset.augmentation_type = self.augmentation_type
+            augmented_dataset.target_idx_list = list(augmemtation_id)
+            augmented_dataset.tensorboard_epoch = epoch+1
+            augmented_dataset.tf_writer = writer
+            print(f"augmentation at {epoch+1} epoch")
+        #   else:
+        #     print(f"no augmentation at {epoch} epoch")
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 

@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--dataset", "Food101",
+                "--dataset", "CIFAR10",
                 "--entropy_threshold", "0.6",
                 "--run_epochs", "3",
                 "--candidate_start_epoch", "0",
@@ -20,9 +20,10 @@
                 "--lr", "0.001",
                 "--l2", "1e-4",
                 "--batch_size", "8",
-                "--not_pretrained",
                 "--reduce_dataset",
                 "--accumulation_steps", "2",
+                "--augmentation_type", "simple",
+                "--simpleAugmentaion_name", "random_color",
             ]
         }
     ]

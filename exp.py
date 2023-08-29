@@ -23,15 +23,13 @@ import itertools
 from collections import Counter
 import copy
 from pytorch_lightning import LightningModule, Trainer
-from memory_profiler import profile
-import sys 
+# from memory_profiler import profile
+# import sys 
 
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
 from VAE_model import VAE
 from resnet_model import Resnet_trainer
-
-
 
 
 if __name__ == '__main__':
@@ -64,9 +62,10 @@ if __name__ == '__main__':
     mean = (0.5, 0.5, 0.5)
     std = (0.5, 0.5, 0.5) 
     transforms_smallSize = transforms.Compose([
-      transforms.Resize((32, 32)),
+      # transforms.Resize((32, 32)),
       transforms.transforms.ToTensor(),
-      transforms.Normalize(mean, std),])
+      # transforms.Normalize(mean, std),
+      ])
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
   else:
@@ -95,13 +94,13 @@ if __name__ == '__main__':
   elif args.augmentation_type == "vae":
     # firstly, trian the datset
     print('using vae augmentation')
-    input_height = 256
+    input_height = 32
     vae_model = VAE(input_height=input_height)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if args.reduce_dataset:
-      vae_trainEpochs = 1
+      vae_trainEpochs = 10
     else: 
-      vae_trainEpochs = 60 
+      vae_trainEpochs = 100
     vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     vae_trainer.tune(vae_model, dataset_loaders['train'])
     vae_trainer.fit(vae_model, dataset_loaders['train'])

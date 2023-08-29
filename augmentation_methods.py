@@ -42,28 +42,31 @@ class AugmentedDataset(Dataset):
         self.augmentation_type = augmentation_type
         self.model = model
         self.model_transforms = model_transforms
-        self.tensorboard_epoch =  tensorboard_epoch
+        self.tensorboard_epoch = tensorboard_epoch
         self.tf_writer = tf_writer
 
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
 
         # Apply data augmentation based on the index being in the target index list
+        # print('len(target_idx_list)',len(self.target_idx_list))
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
             data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
-            # print('vae augmentation')
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                print(self.target_idx_list[-1])
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image('vae_augmentation original & augmented imgs', combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'simple':
             original_data = data
             data  = self.augmentation_transforms(data)
-            # print('simple augmentation')
-
-          if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
-            if idx in self.target_idx_list[-1]:
-              print(self.target_idx_list[-1])
-              combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-              self.tf_writer.add_image('original & augmented imgs', combined_image, self.tensorboard_epoch)
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                print(self.target_idx_list[-1])
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image('original & augmented imgs', combined_image, self.tensorboard_epoch)
 
         return data, label, idx
 
@@ -100,7 +103,7 @@ def simpleAugmentation_selection(augmentation_name):
   elif augmentation_name == "random_resized crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(size=150), transforms.Resize(256), transforms.ToTensor()])
   elif augmentation_name == "random_invert":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(), transforms.ToTensor()])  
+    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(p=0.9), transforms.ToTensor()])  
   elif augmentation_name == "random_posterize":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPosterize(bits=2), transforms.ToTensor()])
   elif augmentation_name == "rand_augment":
