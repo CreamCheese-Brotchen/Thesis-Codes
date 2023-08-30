@@ -56,7 +56,6 @@ class AugmentedDataset(Dataset):
             data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
-                print(self.target_idx_list[-1])
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
                 self.tf_writer.add_image('vae_augmentation original & augmented imgs', combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'simple':
@@ -64,7 +63,6 @@ class AugmentedDataset(Dataset):
             data  = self.augmentation_transforms(data)
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
-                print(self.target_idx_list[-1])
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
                 self.tf_writer.add_image('original & augmented imgs', combined_image, self.tensorboard_epoch)
 

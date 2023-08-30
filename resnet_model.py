@@ -143,7 +143,6 @@ class Resnet_trainer():
     accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
 
     # define the training dataset
-    print("creating augmented dataset")
     augmented_dataset = AugmentedDataset(
         dataset = self.dataloader['train'].dataset,
         target_idx_list = [],
@@ -221,7 +220,7 @@ class Resnet_trainer():
       
       # if augmente
       if self.augmentation_type:
-          if self.run_epochs >= 20:
+          if self.run_epochs > 20:
             if self.augmente_epochs_list is None:     # generate an epoch_list for augmentation
               self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
           else:
@@ -278,7 +277,6 @@ class Resnet_trainer():
       writer.add_scalar('Accuracy/train', train_accuracy[-1], epoch+1)
       writer.add_scalar('Accuracy/test', test_accuracy[-1], epoch+1)
     
-      # 应该退后了一格 思考逻辑
       avg_loss_metric_train.reset()
       accuracy_metric_train.reset()
       avg_loss_metric_test.reset()
