@@ -28,7 +28,7 @@ srun python exp.py \\
     {"--augmentation_type " + args.augmentation_type if args.augmentation_type else ""} \\
     {"--k_epoch_sampleSelection " + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
     {"--augmente_epochs_list " + args.augmente_epochs_list if args.augmente_epochs_list else ""}
-    {"--simpleAugmentaion_name " + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
+    {"--simpleAugmentation_name " + str(args.simpleAugmentation_name) if args.simpleAugmentation_name else ""}
 '''
     return new_sh_content
 
@@ -45,14 +45,14 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
     parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
-    parser.add_argument('--simpleAugmentaion_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
+    parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                     "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                     "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
     parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
     parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
     parser.add_argument('--k_epoch_sampleSelection', type=int, default=None, help='Number of epochs to select the common candidates')
     parser.add_argument('--augmente_epochs_list', type=list, default=None, help='Number of epochs to train VAE')
-    args = parser.parse_args()
+    args = parser.parse_args() 
 
     new_sh_content = create_new_sh_content(args)
     with open('new_testScript.sh', 'w') as file:
@@ -60,13 +60,13 @@ if __name__ == '__main__':
     print(f"Updated the content of 'new_testScript.sh'")
 
     # Submit the generated script using sbatch
-    job_script = "new_testScript.sh"
-    command = ["sbatch", job_script]
-    subprocess.run(command)
-    print("submitted new_testScript.sh")
+    # job_script = "new_testScript.sh"
+    # command = ["sbatch", job_script]
+    # subprocess.run(command)
+    # print("submitted new_testScript.sh")
 
-    # Delete the script file after submission
-    os.remove(job_script)
-    print("deleted the new_testScript.sh after submission.")
+    # # Delete the script file after submission
+    # os.remove(job_script)
+    # print("deleted the new_testScript.sh after submission.")
 
 

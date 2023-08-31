@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 
-class VAE(LightningModule):
+class VAE(LightningModule): 
     def __init__(
         self,
         input_height: int,
