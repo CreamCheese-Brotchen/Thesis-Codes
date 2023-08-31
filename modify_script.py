@@ -25,10 +25,10 @@ srun python exp.py \\
     --vae_accumulationSteps {args.vae_accumulationSteps} \\
     {"--accumulation_steps" if args.accumulation_steps else ""} \\
     {"--reduce_dataset" if args.reduce_dataset else ""} \\
-    {"--augmentation_type" + args.augmentation_type if args.augmentation_type else ""} \\
-    {"--k_epoch_sampleSelection" + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
-    {"--augmente_epochs_list" + args.augmente_epochs_list if args.augmente_epochs_list else ""}
-    {"--simpleAugmentaion_name" + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
+    {"--augmentation_type " + args.augmentation_type if args.augmentation_type else ""} \\
+    {"--k_epoch_sampleSelection " + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
+    {"--augmente_epochs_list " + args.augmente_epochs_list if args.augmente_epochs_list else ""}
+    {"--simpleAugmentaion_name " + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
 '''
     return new_sh_content
 
