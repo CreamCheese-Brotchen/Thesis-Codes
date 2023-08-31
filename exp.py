@@ -59,12 +59,12 @@ if __name__ == '__main__':
   resnet = resnet18(weights=None)
   classes_num = model_numClasses(args.dataset)
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
-    mean = (0.5, 0.5, 0.5)
+    mean = (0.5,)
     std = (0.5, 0.5, 0.5) 
     transforms_smallSize = transforms.Compose([
       # transforms.Resize((32, 32)),
       transforms.transforms.ToTensor(),
-      # transforms.Normalize(mean, std),
+      # transforms.Normalize(mean, mean),
       ])
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
