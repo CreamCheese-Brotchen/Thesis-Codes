@@ -59,14 +59,14 @@ if __name__ == '__main__':
         file.write(new_sh_content)
     print(f"Updated the content of 'new_testScript.sh'")
 
-    # # Submit the generated script using sbatch
-    # job_script = "new_testScript.sh"
-    # command = ["sbatch", job_script]
-    # subprocess.run(command)
-    # print("submitted new_testScript.sh")
+    # Submit the generated script using sbatch
+    job_script = "new_testScript.sh"
+    command = ["sbatch", job_script]
+    subprocess.run(command)
+    print("submitted new_testScript.sh")
 
-    # # Delete the script file after submission
-    # os.remove(job_script)
-    # print("deleted the new_testScript.sh after submission.")
+    # Delete the script file after submission
+    os.remove(job_script)
+    print("deleted the new_testScript.sh after submission.")
 
 
