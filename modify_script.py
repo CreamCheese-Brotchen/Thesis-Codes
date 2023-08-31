@@ -25,10 +25,10 @@ srun python exp.py \\
     --vae_accumulationSteps {args.vae_accumulationSteps} \\
     --accumulation_steps {args.accumulation_steps} \\
     {"--reduce_dataset" if args.reduce_dataset else ""} \\
-    {"--augmentation_type " + args.augmentation_type if args.augmentation_type else ""} \\
-    {"--k_epoch_sampleSelection " + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
+    {"--augmentation_type" + args.augmentation_type if args.augmentation_type else ""} \\
+    {"--k_epoch_sampleSelection" + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
     {"--augmente_epochs_list" + args.augmente_epochs_list if args.augmente_epochs_list else ""}
-    {"--simpleAugmentaion_name " + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
+    {"--simpleAugmentaion_name" + args.simpleAugmentaion_name if args.simpleAugmentaion_name else ""}
 '''
     return new_sh_content
 
@@ -59,14 +59,14 @@ if __name__ == '__main__':
         file.write(new_sh_content)
     print(f"Updated the content of 'new_testScript.sh'")
 
-    # Submit the generated script using sbatch
-    job_script = "new_testScript.sh"
-    command = ["sbatch", job_script]
-    subprocess.run(command)
-    print("submitted new_testScript.sh")
+    # # Submit the generated script using sbatch
+    # job_script = "new_testScript.sh"
+    # command = ["sbatch", job_script]
+    # subprocess.run(command)
+    # print("submitted new_testScript.sh")
 
-    # Delete the script file after submission
-    os.remove(job_script)
-    print("deleted the new_testScript.sh after submission.")
+    # # Delete the script file after submission
+    # os.remove(job_script)
+    # print("deleted the new_testScript.sh after submission.")
 
 
