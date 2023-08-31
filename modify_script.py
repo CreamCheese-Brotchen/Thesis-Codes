@@ -56,7 +56,7 @@ if __name__ == '__main__':
     print(f"Updated the content of 'new_testScript.sh'")
 
     # Submit the generated script using sbatch
-    job_script = "sbatch new_testScript.sh"
+    job_script = "new_testScript.sh"
     command = ["sbatch", job_script]
     subprocess.run(command)
     print("submitted new_testScript.sh")
