@@ -287,11 +287,13 @@ if __name__ == '__main__':
         # transforms.Normalize((0.5,), (0.5,)),
     ])
     train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 64, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    trainer = pl.Trainer(max_epochs=args.run_epochs, auto_lr_find=True)  # Customize Trainer options as needed
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    trainer = pl.Trainer(max_epochs=args.run_epochs, accelerator=str(device), auto_lr_find=True)  # Customize Trainer options as needed
     # train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 16, "CIFAR10", add_idx=True, reduce_dataset=True)
     # trainer = pl.Trainer(max_epochs=30, auto_lr_find=True)
 
     my_vae = MyVAE(input_height=32, latent_dim=256, learning_rate=1e-3, kl_weight=0.1)
+    trainer.tune(my_vae, train_dataloader['train'])
     trainer.fit(my_vae, train_dataloader['train'])
 
 # Assuming you have trained your MyVAE model and loaded the checkpoint

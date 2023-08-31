@@ -35,7 +35,7 @@ input_height = 32
 vae = VAE(input_height=input_height)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-trainer = Trainer(max_epochs=args.vae_runEpochs , accelerator=str(device), auto_lr_find=True)
+trainer = Trainer(max_epochs=args.vae_runEpochs, accelerator=str(device), auto_lr_find=True)
 trainer.tune(vae, dataset_loaders['train'])
 trainer.fit(vae, dataset_loaders['train'])
 
