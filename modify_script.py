@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 
 def create_new_sh_content(args):
     new_sh_content = f'''#!/usr/bin/env bash
@@ -56,8 +57,8 @@ if __name__ == '__main__':
 
     # Submit the generated script using sbatch
     job_script = "sbatch new_testScript.sh"
-    command = f"sbatch {job_script}"
-    os.system(command)
+    command = ["sbatch", job_script]
+    subprocess.run(command)
     print("submitted new_testScript.sh")
 
     # Delete the script file after submission
