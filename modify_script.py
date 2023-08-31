@@ -23,7 +23,7 @@ srun python exp.py \\
     --l2 {args.l2} \\
     --batch_size {args.batch_size} \\
     --vae_accumulationSteps {args.vae_accumulationSteps} \\
-    --accumulation_steps {args.accumulation_steps} \\
+    {"--accumulation_steps" if args.accumulation_steps else ""} \\
     {"--reduce_dataset" if args.reduce_dataset else ""} \\
     {"--augmentation_type" + args.augmentation_type if args.augmentation_type else ""} \\
     {"--k_epoch_sampleSelection" + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
