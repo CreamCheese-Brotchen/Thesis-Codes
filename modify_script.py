@@ -27,7 +27,7 @@ srun python exp.py \\
     {"--reduce_dataset" if args.reduce_dataset else ""} \\
     {"--augmentation_type " + args.augmentation_type if args.augmentation_type else ""} \\
     {"--k_epoch_sampleSelection " + args.k_epoch_sampleSelection if args.k_epoch_sampleSelection else ""} \\
-    {"--augmente_epochs_list " + args.augmente_epochs_list if args.augmente_epochs_list else ""}
+    {"--augmente_epochs_list " + args.augmente_epochs_list if args.augmente_epochs_list else ""}\\
     {"--simpleAugmentation_name " + str(args.simpleAugmentation_name) if args.simpleAugmentation_name else ""}
 '''
     return new_sh_content

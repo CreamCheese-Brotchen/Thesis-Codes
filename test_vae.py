@@ -7,7 +7,7 @@ from torchvision import transforms
 import torchmetrics
 import torch
 from pytorch_lightning import LightningModule, Trainer, seed_everything
-from VAE_model import VAE
+from VAE_model import VAE, MyVAE
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 import argparse
 from torch.utils.tensorboard import SummaryWriter
@@ -32,7 +32,8 @@ transforms_smallSize = transforms.Compose([
 dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
 
 input_height = 32
-vae = VAE(input_height=input_height)
+# vae = VAE(input_height=input_height)
+vae = MyVAE(input_height=input_height)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 trainer = Trainer(max_epochs=args.vae_runEpochs, accelerator=str(device), auto_lr_find=True)
@@ -40,7 +41,7 @@ trainer.tune(vae, dataset_loaders['train'])
 trainer.fit(vae, dataset_loaders['train'])
 
 writer = SummaryWriter(comment=args.tensorboard_comment)
-for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['test']):
+for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['train']):
   first_img = img_tensor[0]
   original_img = torch.utils.data.DataLoader(img_tensor, batch_size=1, shuffle=False)
   vae_out= trainer.predict(model=vae, dataloaders=original_img)
