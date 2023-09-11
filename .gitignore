@@ -9,3 +9,4 @@ __pycache__/*
 might_useful_code.py
 autoencoder.py
 new_testScript.sh
+test_vae.py

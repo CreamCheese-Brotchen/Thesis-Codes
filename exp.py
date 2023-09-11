@@ -23,13 +23,15 @@ import itertools
 from collections import Counter
 import copy
 from pytorch_lightning import LightningModule, Trainer
+import torch.nn as nn
 # from memory_profiler import profile
 # import sys 
 
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
-from VAE_model import VAE
+from VAE_model import VAE, MyVAE
 from resnet_model import Resnet_trainer
+from GANs_model import Discriminator, Generator, gans_trainer, weights_init
 
 
 if __name__ == '__main__':
@@ -44,18 +46,30 @@ if __name__ == '__main__':
   parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple"), help='Augmentation type')
+  parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
+  
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs"), help='Augmentation type')
   parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
-  parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
+  parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
+  parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
+
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
-  parser.add_argument('--k_epoch_sampleSelection', type=int, default=None, help='Number of epochs to select the common candidates')
-  parser.add_argument('--augmente_epochs_list', type=list, default=None, help='Number of epochs to train VAE')
+  parser.add_argument('--vae_trainEpochs', type=int, default=100, help='Number of epochs to train vae')
+
+  parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
+  parser.add_argument('--GANs_latentDim', type=int, default=100, help='latent dim for GANs')
+  parser.add_argument('--GANs_lr', type=float, default=0.001, help='learning rate for GANs')
+  parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs', help='tensorboard comment for GANs')
+
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
 
 
+  ############################
+  # dataloader & model define
+  ###########################
   resnet = resnet18(weights=None)
   classes_num = model_numClasses(args.dataset)
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
@@ -72,7 +86,7 @@ if __name__ == '__main__':
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     transforms_largSize= transforms.Compose([
-    transforms.Resize((299, 299)),
+    transforms.Resize((256, 256)),
     transforms.transforms.ToTensor(),
     transforms.Normalize(mean, std),])
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
@@ -82,44 +96,70 @@ if __name__ == '__main__':
   resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
   print(f"Number of classes: {classes_num}", flush=True)
 
-  
+  num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
+  image_size = dataset_loaders['train'].dataset[0][0].shape[1]
 
+  
+  ############################
+  # Augmentation Part
+  ###########################
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   if args.augmentation_type == "simple":
-    print('using simple augmentation')
+    print('using ' + str(args.simpleAugmentation_name)+ ' augmentation')
     simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentation_name)
-    augmentationType = 'simple'
+    augmentationType = args.augmentation_type
     augmentationTransforms = simpleAugmentation_method
     augmentationModel = None
     augmentationTrainer = None
+  #############################
   elif args.augmentation_type == "vae":
-    # firstly, trian the datset
     print('using vae augmentation')
-    input_height = 32
-    vae_model = VAE(input_height=input_height)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    input_height = image_size
+    vae_model = MyVAE(input_height=input_height, latent_dim=256)
+    # vae_model = VAE(input_height=input_height)
     if args.reduce_dataset:
       vae_trainEpochs = 10
     else: 
-      vae_trainEpochs = 100
+      vae_trainEpochs = args.vae_trainEpochs
     vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     vae_trainer.tune(vae_model, dataset_loaders['train'])
     vae_trainer.fit(vae_model, dataset_loaders['train'])
     # passing the vae trainer to the model_trainer
-    augmentationType = 'vae'
+    augmentationType = args.augmentation_type
     augmentationTransforms = vae_augmentation
     augmentationModel = vae_model
     augmentationTrainer = vae_trainer
-  elif args.augmentation_type == None:
+  #############################
+  elif args.augmentation_type == "GANs":
+    print('using GANs augmentation')
+    latent_dim = args.GANs_latentDim
+    netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)
+    netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=latent_dim).to(device)
+    netD.apply(weights_init)
+    netG.apply(weights_init)
+    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loaders, num_channel=num_channel, input_size=image_size, latent_dim=latent_dim,
+                           num_epochs=args.GANs_trainEpochs, batch_size=args.batch_size, lr=args.GANs_lr, criterion=torch.nn.BCELoss(),
+                           tensorboard_comment=args.GANs_tensorboardComment)
+    trainer.training_steps()
+    # pasing aguments to model trainer
+    augmentationType = args.augmentation_type
+    augmentationTransforms = trainer.get_fake_images
+    augmentationModel = None
+    augmentationTrainer = None
+  else:
     print('No augmentation')
     augmentationType = None
     augmentationTransforms = None
     augmentationModel = None
     augmentationTrainer = None
 
+
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                  lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps
-                                  )
+                                  lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,
+                                  k_epoch_sampleSelection=args.k_epoch_sampleSelection,
+                                  augmente_epochs_list=args.augmente_epochs_list
+                                )
   model_trainer.train()

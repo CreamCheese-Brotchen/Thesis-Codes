@@ -9,6 +9,10 @@ from torch import nn
 from torch.nn import functional as F  
 import matplotlib.pyplot as plt
 import torchvision
+from torch import nn
+import tensorflow as tf
+from tensorflow import Tensor
+from abc import abstractmethod
 from pl_bolts.models.autoencoders.components import (
     resnet18_decoder,
     resnet18_encoder,
@@ -18,6 +22,7 @@ from pl_bolts.models.autoencoders.components import (
 import argparse
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
+from typing import List, Any
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -136,29 +141,6 @@ class VAE(LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
-    
-class MyVAE_test(VAE):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    #     # Add any additional customization here
-    def training_step(self, batch, batch_idx):
-        x, _ = batch
-        mu, log_var = self.encoder(x)
-        z = self.reparameterize(mu, log_var)
-        x_hat = self.decoder(z)
-        
-        reconstruction_loss = F.mse_loss(x_hat, x, reduction='sum')
-        kl_divergence = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-        
-        loss = reconstruction_loss + self.kl_weight * kl_divergence
-        
-        self.log('train_loss', loss)
-        self.log('reconstruction_loss', reconstruction_loss)
-        self.log('kl_divergence', kl_divergence)
-        
-        return loss
-
-
 
 class MyVAE(LightningModule):
     def __init__(
@@ -211,46 +193,44 @@ class MyVAE(LightningModule):
         x = self.encoder(x)
         mu = self.fc_mu(x)
         log_var = self.fc_var(x)
-        p, q, z = self.reparameterize(mu, log_var)
-        return self.decoder(z)
+        # p, q, z = self.reparameterize(mu, log_var)
+        z = self.reparameterize(mu, log_var)
+        reconstructed_data = self.decoder(z)
+        return reconstructed_data
 
-    def _run_step(self, x):
+
+    def run_encoder(self, x):
         x = self.encoder(x)
         mu = self.fc_mu(x)
         log_var = self.fc_var(x)
-        p, q, z = self.reparameterize(mu, log_var)
-        return z, self.decoder(z), p, q
+        return mu, log_var
 
     def reparameterize(self, mu, log_var):
         std = torch.exp(log_var / 2)
         p = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         q = torch.distributions.Normal(mu, std)
         z = q.rsample()
-        return p, q, z
-
-    def step(self, batch, batch_idx):  # should be '_get_reconstruction_loss' ? 
-        x, y, id  = batch
-        z, x_hat, p, q = self._run_step(x)
-
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        # return p, q, z
+        return eps*std + mu
+    
+    def loss_function(self, x, x_hat, mu, log_var):
         recon_loss = F.mse_loss(x_hat, x, reduction="mean")
-
-        kl = torch.distributions.kl_divergence(q, p)
-        kl = kl.mean()
-        kl *= self.kl_coeff
-
-        loss = kl + recon_loss
-
-        logs = {
-            "recon_loss": recon_loss,
-            "kl": kl,
-            "loss": loss,
-        }
-        return loss, logs
-
+        kl_divergence = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        kl_divergence *= self.kl_coeff
+        total_loss = recon_loss + kl_divergence
+        return total_loss
+    
     def training_step(self, batch, batch_idx):
-        loss, logs = self.step(batch, batch_idx)
-        self.log_dict({f"train_{k}": v for k, v in logs.items()}, on_step=True, on_epoch=False)
+        x, _, _ = batch
+        mu, log_var = self.run_encoder(x)
+        z = self.reparameterize(mu, log_var)
+        reconstruction = self.decoder(z)
+        loss = self.loss_function(x, reconstruction, mu, log_var)
+        self.log('train_loss', loss)
         return loss
+
 
     def validation_step(self, batch, batch_idx):
         loss, logs = self.step(batch, batch_idx)
@@ -267,49 +247,55 @@ class MyVAE(LightningModule):
 
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Resnet Training script')
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='Resnet Training script')
 
-    parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-    parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
-    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
-    parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-    parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
-    args = parser.parse_args()
-    print(f"Script Arguments: {args}", flush=True)
+#     parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
+#     parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
+#     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
+#     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+#     parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
+#     args = parser.parse_args()
+#     print(f"Script Arguments: {args}", flush=True)
 
+#     writer = SummaryWriter(comment=args.tensorboard_comment)
 
+#     transforms_smallSize = transforms.Compose([
+#         transforms.transforms.ToTensor(),
+#         # transforms.Normalize((0.5,), (0.5,)),
+#     ])
+#     train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 64, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     trainer = pl.Trainer(max_epochs=args.run_epochs, accelerator=str(device), auto_lr_find=True)  # Customize Trainer options as needed
+#     # train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 16, "CIFAR10", add_idx=True, reduce_dataset=True)
+#     # trainer = pl.Trainer(max_epochs=30, auto_lr_find=True)
 
-    writer = SummaryWriter(comment=args.tensorboard_comment)
+#     my_vae = MyVAE(input_height=32, latent_dim=256)
+#     trainer.tune(my_vae, train_dataloader['train'])
+#     trainer.fit(my_vae, train_dataloader['train'])
 
-    transforms_smallSize = transforms.Compose([
-        transforms.transforms.ToTensor(),
-        # transforms.Normalize((0.5,), (0.5,)),
-    ])
-    train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 64, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    trainer = pl.Trainer(max_epochs=args.run_epochs, accelerator=str(device), auto_lr_find=True)  # Customize Trainer options as needed
-    # train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 16, "CIFAR10", add_idx=True, reduce_dataset=True)
-    # trainer = pl.Trainer(max_epochs=30, auto_lr_find=True)
+# # Assuming you have trained your MyVAE model and loaded the checkpoint
 
-    my_vae = MyVAE(input_height=32, latent_dim=256, learning_rate=1e-3, kl_weight=0.1)
-    trainer.tune(my_vae, train_dataloader['train'])
-    trainer.fit(my_vae, train_dataloader['train'])
+# # Set the model to evaluation mode
+#     my_vae.eval()
 
-# Assuming you have trained your MyVAE model and loaded the checkpoint
-
-# Set the model to evaluation mode
-    my_vae.eval()
-
-# Generate a batch of input data
-    input_data, _, _ = next(iter(train_dataloader["train"]))
-    writer.add_images('original_images', input_data, 0)
-    # Pass the input data through the model to get reconstructed images
-    with torch.no_grad():
-        # mu, log_var = my_vae.encoder(input_data)
-        # z = my_vae.reparameterize(mu, log_var)
-        reconstructed_data = my_vae.forward(input_data)
-        writer.add_images('vae reconstructed_images', reconstructed_data, 0)
+# # Generate a batch of input data
+#     input_data, _, _ = next(iter(train_dataloader["train"]))
+#     writer.add_images('original_images', input_data, 0)
+#     # Pass the input data through the model to get reconstructed images
+#     with torch.no_grad():
+#         # mu, log_var = my_vae.encoder(input_data)
+#         # z = my_vae.reparameterize(mu, log_var)
+#         reconstructed_data = my_vae.forward(input_data)
+#         writer.add_images('vae reconstructed_images', reconstructed_data, 0)
+#     for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader['train']):
+#         first_img = img_tensor[0]
+#         original_img = torch.utils.data.DataLoader(img_tensor, batch_size=1, shuffle=False)
+#         vae_out= trainer.predict(model=my_vae, dataloaders=original_img)
+#         first_vaeImg = vae_out[0].squeeze()  # first the vae_img
+#         #   augmented_data_tensor = first_vaeImg
+#         combined_image = torch.cat((first_img, first_vaeImg), dim=2)
+#         writer.add_image('vae img with trainer.predict', combined_image, batch_id)
 
 
 # Now you can visualize the original and reconstructed images

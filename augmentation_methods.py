@@ -49,7 +49,6 @@ class AugmentedDataset(Dataset):
         data, label, idx = self.dataset[index]
 
         # Apply data augmentation based on the index being in the target index list
-        # print('len(target_idx_list)',len(self.target_idx_list))
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
@@ -57,14 +56,23 @@ class AugmentedDataset(Dataset):
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                self.tf_writer.add_image('vae_augmentation original & augmented imgs', combined_image, self.tensorboard_epoch)
+                self.tf_writer.add_image('original & vae augmented imgs', combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'simple':
             original_data = data
             data  = self.augmentation_transforms(data)
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                self.tf_writer.add_image('original & augmented imgs', combined_image, self.tensorboard_epoch)
+                writer_comment = 'original & ' + str(self.augmentation_type) + ' augmented imgs'
+                self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
+          if self.augmentation_type == 'GANs':
+            original_data = data
+            data  = self.augmentation_transforms(1).squeeze()  # 1: the num of imgs is 1, just one image; squeeze: remove the first dimension [1,3,32, 32] -> [3,32, 32]
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                writer_comment = 'original & ' + str(self.augmentation_type) + ' augmented imgs'
+                self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
 
         return data, label, idx
 

@@ -46,7 +46,7 @@ for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['train
   original_img = torch.utils.data.DataLoader(img_tensor, batch_size=1, shuffle=False)
   vae_out= trainer.predict(model=vae, dataloaders=original_img)
   first_vaeImg = vae_out[0].squeeze()  # first the vae_img
-#   augmented_data_tensor = first_vaeImg
+  augmented_data_tensor = first_vaeImg
   combined_image = torch.cat((first_img, first_vaeImg), dim=2)
   writer.add_image('original vs VAE img', combined_image, batch_id)
 
