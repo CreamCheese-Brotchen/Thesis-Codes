@@ -144,8 +144,8 @@ class gans_trainer():
         self.criterion = criterion
         self.batch_size = batch_size
         self.latent_dim = latent_dim
-        self.optimizerD = torch.optim.Adam(self.netD.parameters(), lr=self.lr)
-        self.optimizerG = torch.optim.Adam(self.netG.parameters(), lr=self.lr)
+        self.optimizerD = torch.optim.Adam(self.netD.parameters(), lr=self.lr, betas=(0.5, 0.999))
+        self.optimizerG = torch.optim.Adam(self.netG.parameters(), lr=self.lr, betas=(0.5, 0.999))
         self.fixed_noise = torch.randn(self.batch_size, self.latent_dim, 1, 1)  #是否是用fixed_noise, 或者是每个epoch都用不同的noise
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.tensorboard_comment = tensorboard_comment
@@ -182,7 +182,7 @@ class gans_trainer():
                 D_x = output.mean().item()
 
                 ## Train with all-fake batch
-                # Generate batch of latent vectors
+                # Generate batch of latent vectors of latent_dim as input for G
                 noise = torch.randn(b_size, self.latent_dim, 1, 1, device=self.device)
                 # Generate fake image batch with G
                 fake = self.netG(noise)   # fake_img
@@ -215,10 +215,11 @@ class gans_trainer():
                 self.optimizerG.step()
 
                 # Save Losses for plotting later 
-            fakeImg_training = self.netG(noise).detach().cpu()
-            writer.add_scalar('loss_D', D_G_z1, epoch+1)
-            writer.add_scalar('loss_G', D_G_z2, epoch+1)
-            writer.add_image('fake_images', fakeImg_training[-1], epoch+1)
+            with torch.no_grad():
+                fakeImg_training = self.netG(noise).detach().cpu()
+                writer.add_scalar('loss_D', D_G_z1, epoch+1)
+                writer.add_scalar('loss_G', D_G_z2, epoch+1)
+                writer.add_image('fake_images', fakeImg_training[-1], epoch+1)
 
                 # # Check how the generator is doing by saving G's output on fixed_noise
                 # if (iters % 500 == 0) or ((epoch == self.num_epochs-1) and (i == len(self.dataloader)-1)):

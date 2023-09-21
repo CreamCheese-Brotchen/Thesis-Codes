@@ -32,7 +32,7 @@ from augmentation_methods import simpleAugmentation_selection, AugmentedDataset,
 from VAE_model import VAE, MyVAE
 from resnet_model import Resnet_trainer
 from GANs_model import Discriminator, Generator, gans_trainer, weights_init
-
+from lrSearch import lrSearch
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
@@ -43,6 +43,7 @@ if __name__ == '__main__':
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
   parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
   parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+  parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
   parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
@@ -70,8 +71,9 @@ if __name__ == '__main__':
   ############################
   # dataloader & model define
   ###########################
-  resnet = resnet18(weights=None)
   classes_num = model_numClasses(args.dataset)
+  resnet = resnet18(weights=None, num_classes=classes_num)
+  # adjust the kernel size and stride for diffierent dataset
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
     mean = (0.5,)
     std = (0.5, 0.5, 0.5) 
@@ -92,13 +94,22 @@ if __name__ == '__main__':
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=3, bias=False)
   
-  num_ftrs = resnet.fc.in_features
-  resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
-  print(f"Number of classes: {classes_num}", flush=True)
+  # num_ftrs = resnet.fc.in_features
+  # resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
+  # print(f"Number of classes: {classes_num}", flush=True)
 
   num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
 
+  # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
+  if args.accumulation_steps:
+    lr_trainerSteps = args.accumulation_steps
+  else:
+    lr_trainerSteps = 1
+  lr_trainerParams = {'max_epochs': 100, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
+  lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
+  suggested_lr = lr_finder.search()
+  print("suggested lr: ", suggested_lr)
   
   ############################
   # Augmentation Part
@@ -153,12 +164,16 @@ if __name__ == '__main__':
     augmentationModel = None
     augmentationTrainer = None
 
-
+  if args.customLr_flag:
+    adjusted_lr = args.lr
+  else:
+    adjusted_lr = suggested_lr
+    print("using suggested lr: ", suggested_lr)
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                  lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,
+                                  lr=adjusted_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
                                   k_epoch_sampleSelection=args.k_epoch_sampleSelection,
                                   augmente_epochs_list=args.augmente_epochs_list
                                 )
