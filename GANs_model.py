@@ -149,6 +149,7 @@ class gans_trainer():
         self.fixed_noise = torch.randn(self.batch_size, self.latent_dim, 1, 1)  #是否是用fixed_noise, 或者是每个epoch都用不同的noise
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.tensorboard_comment = tensorboard_comment
+        self.fixed_noise = torch.randn(1, self.latent_dim, 1, 1, device=self.device) # to viszualize the training process with one img
 
     def training_steps(self):
         print("Starting Training Loop...")
@@ -214,19 +215,13 @@ class gans_trainer():
                 # Update G
                 self.optimizerG.step()
 
-                # Save Losses for plotting later 
+            # Save Losses for plotting later 
             with torch.no_grad():
-                fakeImg_training = self.netG(noise).detach().cpu()
+                fakeImg_training = self.netG(self.fixed_noise).detach().cpu()
                 writer.add_scalar('loss_D', D_G_z1, epoch+1)
                 writer.add_scalar('loss_G', D_G_z2, epoch+1)
                 writer.add_image('fake_images', fakeImg_training[-1], epoch+1)
 
-                # # Check how the generator is doing by saving G's output on fixed_noise
-                # if (iters % 500 == 0) or ((epoch == self.num_epochs-1) and (i == len(self.dataloader)-1)):
-                #     with torch.no_grad():
-                #         fake = self.netG(self.fixed_noise).detach().cpu()
-                #     img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
-                # iters += 1
             writer.close()
 
             print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
@@ -234,10 +229,16 @@ class gans_trainer():
 
         # finalEpoch_fakeImg = self.netG(self.fixed_noise).detach().cpu()
 
-    def get_fake_images(self, num_images):
-        noise = torch.randn(num_images, self.latent_dim, 1, 1, device=self.device)
-        fake_imgs = self.netG(noise)
-        return fake_imgs
+    def customed_generator(self, customed_latent):
+        self.netG.eval()
+        generated_imags = self.netG(customed_latent)
+        return generated_imags
+
+    # def get_fake_images(self, image_loader):
+        
+    #     noise = torch.randn(num_images, self.latent_dim, 1, 1, device=self.device)
+    #     fake_imgs = self.netG(noise)
+    #     return fake_imgs
 
 
 
@@ -254,11 +255,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
 
-    transforms_smallSize = transforms.Compose([
-        transforms.transforms.ToTensor(),
-    #   transforms.Resize(256),
-    ])
-    dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+        transformSize = transforms.Compose([
+            transforms.transforms.ToTensor(),
+        ])
+    elif args.dataset in ['Flowers102', 'Food101']:
+        transformSize = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.transforms.ToTensor(),
+        ])
+
+    dataset_loaders = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
     image_size = dataset_loaders['train'].dataset[0][0].shape[1]
     latent_dim = 100

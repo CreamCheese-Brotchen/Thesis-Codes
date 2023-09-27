@@ -4,7 +4,6 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from argparse import ArgumentParser
 import torch
-from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch import nn
 from torch.nn import functional as F  
 import matplotlib.pyplot as plt
@@ -12,304 +11,286 @@ import torchvision
 from torch import nn
 import tensorflow as tf
 from tensorflow import Tensor
-from abc import abstractmethod
-from pl_bolts.models.autoencoders.components import (
-    resnet18_decoder,
-    resnet18_encoder,
-    resnet50_decoder,
-    resnet50_encoder,
-)
 import argparse
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
-from typing import List, Any
 from torch.utils.tensorboard import SummaryWriter
+from torch.autograd import Variable
+import os
+from GANs_model import gans_trainer, Discriminator, Generator, weights_init
 
 
-
-class VAE(LightningModule): 
-    def __init__(
-        self,
-        input_height: int,
-        enc_type: str = "resnet18",
-        first_conv: bool = False,
-        maxpool1: bool = False,
-        enc_out_dim: int = 512,
-        kl_coeff: float = 0.1,
-        latent_dim: int = 256,
-        lr: float = 1e-4,
-        **kwargs,
-    ) -> None:
-        """
-        Args:
-            input_height: height of the images
-            enc_type: option between resnet18 or resnet50
-            first_conv: use standard kernel_size 7, stride 2 at start or
-                replace it with kernel_size 3, stride 1 conv
-            maxpool1: use standard maxpool to reduce spatial dim of feat by a factor of 2
-            enc_out_dim: set according to the out_channel count of
-                encoder used (512 for resnet18, 2048 for resnet50)
-            kl_coeff: coefficient for kl term of the loss
-            latent_dim: dim of latent space
-            lr: learning rate for Adam
-        """
-
+class VAE(nn.Module):
+    def __init__(self, image_size, channel_num, kernel_num, z_size, loss_func):
+        # configurations
         super().__init__()
+        self.image_size = image_size
+        self.channel_num = channel_num
+        self.kernel_num = kernel_num
+        self.z_size = z_size
+        self.loss_func = loss_func 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.save_hyperparameters()
+        # encoder
+        if self.image_size == 32:
+          self.encoder = nn.Sequential(
+              self._conv(channel_num, kernel_num // 4),
+              self._conv(kernel_num // 4, kernel_num // 2),
+              self._conv(kernel_num // 2, kernel_num),
+          )
+        elif self.image_size == 256:
+          self.encoder == nn.Sequential(            
+            self._conv(channel_num, kernel_num // 8),
+            self._conv(kernel_num // 8, kernel_num // 4),
+            self._conv(kernel_num // 4, kernel_num // 2),
+            self._conv(kernel_num // 2, kernel_num)
+            )
 
-        self.lr = lr
-        self.kl_coeff = kl_coeff
-        self.enc_out_dim = enc_out_dim
-        self.latent_dim = latent_dim
-        self.input_height = input_height
+        # encoded feature's size and volume
+        self.feature_size = image_size // 8
+        self.feature_volume = kernel_num * (self.feature_size ** 2)
 
-        valid_encoders = {
-            "resnet18": {
-                "enc": resnet18_encoder,
-                "dec": resnet18_decoder,
-            },
-            "resnet50": {
-                "enc": resnet50_encoder,
-                "dec": resnet50_decoder,
-            },
-        }
+        # q
+        self.q_mean = self._linear(self.feature_volume, z_size, relu=False)
+        self.q_logvar = self._linear(self.feature_volume, z_size, relu=False)
 
-        if enc_type not in valid_encoders:
-            self.encoder = resnet18_encoder(first_conv, maxpool1)
-            self.decoder = resnet18_decoder(self.latent_dim, self.input_height, first_conv, maxpool1)
-        else:
-            self.encoder = valid_encoders[enc_type]["enc"](first_conv, maxpool1)
-            self.decoder = valid_encoders[enc_type]["dec"](self.latent_dim, self.input_height, first_conv, maxpool1)
+        # projection
+        self.project = self._linear(z_size, self.feature_volume, relu=False)
 
-        self.fc_mu = nn.Linear(self.enc_out_dim, self.latent_dim)
-        self.fc_var = nn.Linear(self.enc_out_dim, self.latent_dim)
-
+        # decoder
+        self.decoder = nn.Sequential(
+            self._deconv(kernel_num, kernel_num // 2),
+            self._deconv(kernel_num // 2, kernel_num // 4),
+            self._deconv(kernel_num // 4, channel_num),
+            nn.Sigmoid()
+        )
 
     def forward(self, x):
-        # x = x[0]   # added this line because of the size of the dataloader problem
-        x = self.encoder(x)
-        mu = self.fc_mu(x)
-        log_var = self.fc_var(x)
-        p, q, z = self.sample(mu, log_var)
-        return self.decoder(z)
+        # encode x
+        encoded = self.encoder(x)
 
-    def _run_step(self, x):
-        x = self.encoder(x)
-        mu = self.fc_mu(x)
-        log_var = self.fc_var(x)
-        p, q, z = self.sample(mu, log_var)
-        return z, self.decoder(z), p, q
+        # sample latent code z from q given x.
+        mean, logvar = self.q(encoded)
+        z = self.z(mean, logvar)
+        z_projected = self.project(z).view(
+            -1, self.kernel_num,
+            self.feature_size,
+            self.feature_size,
+        )
 
-    def sample(self, mu, log_var):
-        std = torch.exp(log_var / 2)
-        p = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
-        q = torch.distributions.Normal(mu, std)
-        z = q.rsample()
-        return p, q, z
+        # reconstruct x from z
+        x_reconstructed = self.decoder(z_projected)
 
-    def step(self, batch, batch_idx):  # should be '_get_reconstruction_loss' ? 
-        x, y, id  = batch
-        z, x_hat, p, q = self._run_step(x)
-
-        recon_loss = F.mse_loss(x_hat, x, reduction="mean")
-
-        kl = torch.distributions.kl_divergence(q, p)
-        kl = kl.mean()
-        kl *= self.kl_coeff
-
-        loss = kl + recon_loss
-
-        logs = {
-            "recon_loss": recon_loss,
-            "kl": kl,
-            "loss": loss,
-        }
-        return loss, logs
-
-    def training_step(self, batch, batch_idx):
-        loss, logs = self.step(batch, batch_idx)
-        self.log_dict({f"train_{k}": v for k, v in logs.items()}, on_step=True, on_epoch=False)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        loss, logs = self.step(batch, batch_idx)
-        self.log_dict({f"val_{k}": v for k, v in logs.items()})
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        # return the parameters of distribution of q given x and the reconstructed image.
+        return (mean, logvar), x_reconstructed
 
 
+    # intergrate the latent dim from encoder with GANs model
+    def get_latent(self, x):
+        encoded = self.encoder(x)
+        mean, logvar = self.q(encoded)
+        z = self.z(mean, logvar)
+        z_projected = self.project(z).view(
+            -1, self.kernel_num,
+            self.feature_size,
+            self.feature_size,
+        )
+        return z_projected
+    # ==============
+    # VAE components
+    # ==============
 
-class MyVAE(LightningModule):
-    def __init__(
-        self,
-        input_height: int,
-        enc_type: str = "resnet18",
-        first_conv: bool = False,
-        maxpool1: bool = False,
-        enc_out_dim: int = 512,
-        kl_coeff: float = 0.1,
-        latent_dim: int = 256,
-        lr: float = 1e-4,
-        **kwargs,
-    ) -> None:
+    def q(self, encoded):
+        unrolled = encoded.view(-1, self.feature_volume)
+        return self.q_mean(unrolled), self.q_logvar(unrolled)
 
-        super().__init__()
+    def z(self, mean, logvar):
+        std = logvar.mul(0.5).exp_()
+        eps = (
+            Variable(torch.randn(std.size()))
+        ).to(self.device)
+        return eps.mul(std).add_(mean)
 
-        self.save_hyperparameters()
-
-        self.lr = lr
-        self.kl_coeff = kl_coeff
-        self.enc_out_dim = enc_out_dim
-        self.latent_dim = latent_dim
-        self.input_height = input_height
-
-        valid_encoders = {
-            "resnet18": {
-                "enc": resnet18_encoder,
-                "dec": resnet18_decoder,
-            },
-            "resnet50": {
-                "enc": resnet50_encoder,
-                "dec": resnet50_decoder,
-            },
-        }
-
-        if enc_type not in valid_encoders:
-            self.encoder = resnet18_encoder(first_conv, maxpool1)
-            self.decoder = resnet18_decoder(self.latent_dim, self.input_height, first_conv, maxpool1)
+    def reconstruction_loss(self, x_reconstructed, x):
+        if self.loss_func:
+            loss = self.loss_func(x_reconstructed, x)
         else:
-            self.encoder = valid_encoders[enc_type]["enc"](first_conv, maxpool1)
-            self.decoder = valid_encoders[enc_type]["dec"](self.latent_dim, self.input_height, first_conv, maxpool1)
+            loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+        return loss
 
-        self.fc_mu = nn.Linear(self.enc_out_dim, self.latent_dim)
-        self.fc_var = nn.Linear(self.enc_out_dim, self.latent_dim)
-
-
-    def forward(self, x):
-        # x = x[0]   # added this line because of the size of the dataloader problem
-        x = self.encoder(x)
-        mu = self.fc_mu(x)
-        log_var = self.fc_var(x)
-        # p, q, z = self.reparameterize(mu, log_var)
-        z = self.reparameterize(mu, log_var)
-        reconstructed_data = self.decoder(z)
-        return reconstructed_data
+    def kl_divergence_loss(self, mean, logvar):
+        return ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
 
 
-    def run_encoder(self, x):
-        x = self.encoder(x)
-        mu = self.fc_mu(x)
-        log_var = self.fc_var(x)
-        return mu, log_var
+    def sample(self, size):
+        z = Variable(
+            torch.randn(size, self.z_size)
+        ).to(self.device)
+        z_projected = self.project(z).view(
+            -1, self.kernel_num,
+            self.feature_size,
+            self.feature_size,
+        )
+        return self.decoder(z_projected).data
 
-    def reparameterize(self, mu, log_var):
-        std = torch.exp(log_var / 2)
-        p = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
-        q = torch.distributions.Normal(mu, std)
-        z = q.rsample()
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        # return p, q, z
-        return eps*std + mu
+
+    # ======
+    # Layers
+    # ======
+
+    def _conv(self, channel_size, kernel_num):
+        return nn.Sequential(
+            nn.Conv2d(
+                channel_size, kernel_num,
+                kernel_size=4, stride=2, padding=1,
+            ),
+            nn.BatchNorm2d(kernel_num),
+            nn.ReLU(),
+        )
+
+    def _deconv(self, channel_num, kernel_num):
+        return nn.Sequential(
+            nn.ConvTranspose2d(
+                channel_num, kernel_num,
+                kernel_size=4, stride=2, padding=1,
+            ),
+            nn.BatchNorm2d(kernel_num),
+            nn.ReLU(),
+        )
+
+    def _linear(self, in_size, out_size, relu=True):
+        return nn.Sequential(
+            nn.Linear(in_size, out_size),
+            nn.ReLU(),
+        ) if relu else nn.Linear(in_size, out_size)
+
+
+ 
+def save_checkpoint(model, model_dir, epoch):
+    path = os.path.join(model_dir, model.name)
+
+    # save the checkpoint.
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    torch.save({'state': model.state_dict(), 'epoch': epoch}, path)
+
+    # notify that we successfully saved the checkpoint.
+    print('=> saved the model {name} to {path}'.format(
+        name=model.name, path=path
+    ))
+
+def load_checkpoint(model, model_dir):
+    path = os.path.join(model_dir, model.name)
+
+    # load the checkpoint.
+    checkpoint = torch.load(path)
+    print('=> loaded checkpoint of {name} from {path}'.format(
+        name=model.name, path=(path)
+    ))
+
+    # load parameters and return the checkpoint's epoch and precision.
+    model.load_state_dict(checkpoint['state'])
+    epoch = checkpoint['epoch']
+    return epoch
+
+def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tensorboard_comment='test_run'):
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    writer = SummaryWriter(comment=tensorboard_comment)        
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    model.to(device)
+    model.train()
+    for epoch in range(epochs):
+        for i, (x, _, _) in enumerate(data_loader['train']):
+            x = Variable(x).to(device)
+            # flush gradients and run the model forward
+            optimizer.zero_grad()
+            (mean, logvar), x_reconstructed = model(x)
+            reconstruction_loss = model.reconstruction_loss(x_reconstructed, x)
+            kl_divergence_loss = model.kl_divergence_loss(mean, logvar)
+            total_loss = reconstruction_loss + kl_divergence_loss
+
+            # backprop gradients from the loss
+            total_loss.backward()
+            optimizer.step()
+        
+        ###### 
+        original_img = x[-1].unsqueeze(0)
+        reconstructed_img = x_reconstructed[-1].unsqueeze(0)
+        stacked_images = torch.cat([original_img, reconstructed_img])
+        writer.add_scalar('total loss during training', total_loss, epoch+1)
+        writer.add_images('original vs x_reconstructed', stacked_images, epoch+1)
+
+        print('epoch ', epoch,
+              ", recons_loss:", reconstruction_loss.detach().numpy(),
+              ", k1_loss:", kl_divergence_loss.detach().numpy(),
+              ", total loss:", total_loss.detach().numpy())
+        
+    writer.close()
+        
+        # save the checkpoint.
+        # save_checkpoint(model, checkpoint_dir, epoch)
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Resnet Training script')
+
+    parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
+    parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
+    parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+    parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
+    parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
+    parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
+    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
+    parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay")
+    parser.add_argument("--testLoss_flag", type=bool, default=False, help="Flag to use BCELoss for testing")
+    args = parser.parse_args()
+    print(f"Script Arguments: {args}", flush=True)
+
+    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+        transformSize = transforms.Compose([
+            transforms.transforms.ToTensor(),
+        ])
+    elif args.dataset in ['Flowers102', 'Food101']:
+        transformsSize = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.transforms.ToTensor(),
+        ])
+    dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+    num_channel = dataset_loader['train'].dataset[0][0].shape[0]
+    image_size = dataset_loader['train'].dataset[0][0].shape[1]
+    vae = VAE(
+        image_size=image_size,
+        channel_num=num_channel,
+        kernel_num=args.kernel_num,
+        z_size=args.z_size,
+        loss_func=nn.BCELoss(),
+    )
+    train_model(vae, dataset_loader,
+            epochs=args.run_epochs,
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+        )
     
-    def loss_function(self, x, x_hat, mu, log_var):
-        recon_loss = F.mse_loss(x_hat, x, reduction="mean")
-        kl_divergence = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-        kl_divergence *= self.kl_coeff
-        total_loss = recon_loss + kl_divergence
-        return total_loss
-    
-    def training_step(self, batch, batch_idx):
-        x, _, _ = batch
-        mu, log_var = self.run_encoder(x)
-        z = self.reparameterize(mu, log_var)
-        reconstruction = self.decoder(z)
-        loss = self.loss_function(x, reconstruction, mu, log_var)
-        self.log('train_loss', loss)
-        return loss
+    # ##############################
+    # ## GANs
+    # ##############################
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # if isinstance(args.gans_latentDim, int):
+    #     gans_latentVector = args.gans_latentDim
+    # else:
+    #     print("using the latent vector from the VAE")
+    #     # gans_latentVector = 
+    # netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)
+    # netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=gans_latentVector).to(device)
+    # netD.apply(weights_init)
+    # netG.apply(weights_init)
+    # trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loader, num_channel=num_channel, input_size=image_size, latent_dim=100,
+    #                        num_epochs=args.run_epochs, batch_size=args.batch_size, lr=args.lr, criterion=nn.BCELoss(),
+    #                        tensorboard_comment=args.tensorboard_comment)
+    # trainer.training_steps()
 
 
-    def validation_step(self, batch, batch_idx):
-        loss, logs = self.step(batch, batch_idx)
-        self.log_dict({f"val_{k}": v for k, v in logs.items()})
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
-
-    def test_step(self, batch, batch_idx):
-        loss, logs = self.step(batch, batch_idx)
-        self.log_dict({f"val_{k}": v for k, v in logs.items()})
-        return loss
-
-
-
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser(description='Resnet Training script')
-
-#     parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-#     parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
-#     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
-#     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-#     parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
-#     args = parser.parse_args()
-#     print(f"Script Arguments: {args}", flush=True)
-
-#     writer = SummaryWriter(comment=args.tensorboard_comment)
-
-#     transforms_smallSize = transforms.Compose([
-#         transforms.transforms.ToTensor(),
-#         # transforms.Normalize((0.5,), (0.5,)),
-#     ])
-#     train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 64, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     trainer = pl.Trainer(max_epochs=args.run_epochs, accelerator=str(device), auto_lr_find=True)  # Customize Trainer options as needed
-#     # train_dataloader = create_dataloaders(transforms_smallSize, transforms_smallSize, 16, "CIFAR10", add_idx=True, reduce_dataset=True)
-#     # trainer = pl.Trainer(max_epochs=30, auto_lr_find=True)
-
-#     my_vae = MyVAE(input_height=32, latent_dim=256)
-#     trainer.tune(my_vae, train_dataloader['train'])
-#     trainer.fit(my_vae, train_dataloader['train'])
-
-# # Assuming you have trained your MyVAE model and loaded the checkpoint
-
-# # Set the model to evaluation mode
-#     my_vae.eval()
-
-# # Generate a batch of input data
-#     input_data, _, _ = next(iter(train_dataloader["train"]))
-#     writer.add_images('original_images', input_data, 0)
-#     # Pass the input data through the model to get reconstructed images
-#     with torch.no_grad():
-#         # mu, log_var = my_vae.encoder(input_data)
-#         # z = my_vae.reparameterize(mu, log_var)
-#         reconstructed_data = my_vae.forward(input_data)
-#         writer.add_images('vae reconstructed_images', reconstructed_data, 0)
-#     for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader['train']):
-#         first_img = img_tensor[0]
-#         original_img = torch.utils.data.DataLoader(img_tensor, batch_size=1, shuffle=False)
-#         vae_out= trainer.predict(model=my_vae, dataloaders=original_img)
-#         first_vaeImg = vae_out[0].squeeze()  # first the vae_img
-#         #   augmented_data_tensor = first_vaeImg
-#         combined_image = torch.cat((first_img, first_vaeImg), dim=2)
-#         writer.add_image('vae img with trainer.predict', combined_image, batch_id)
-
-
-# Now you can visualize the original and reconstructed images
-# original_images = torchvision.utils.make_grid(input_data, nrow=8, normalize=True)
-# reconstructed_images = torchvision.utils.make_grid(reconstructed_data, nrow=8, normalize=True)
-
-# plt.figure(figsize=(12, 6))
-# plt.subplot(1, 2, 1)
-# plt.title('Original Images')
-# plt.imshow(np.transpose(original_images, (1, 2, 0)))
-
-# plt.subplot(1, 2, 2)
-# plt.title('Reconstructed Images')
-# plt.imshow(np.transpose(reconstructed_images, (1, 2, 0)))
-
-# plt.tight_layout()
-# plt.show()
