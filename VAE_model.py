@@ -9,8 +9,6 @@ from torch.nn import functional as F
 import matplotlib.pyplot as plt
 import torchvision
 from torch import nn
-import tensorflow as tf
-from tensorflow import Tensor
 import argparse
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
