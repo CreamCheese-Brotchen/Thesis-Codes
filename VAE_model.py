@@ -113,6 +113,7 @@ class VAE(nn.Module):
         if self.loss_func:
             loss = self.loss_func(x_reconstructed, x)
         else:
+            # print('using default loss function')
             loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
         return loss
 
@@ -244,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
     parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay")
-    parser.add_argument("--testLoss_flag", type=bool, default=False, help="Flag to use BCELoss for testing")
+    parser.add_argument("--loss_func", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
 
@@ -265,7 +266,7 @@ if __name__ == '__main__':
         channel_num=num_channel,
         kernel_num=args.kernel_num,
         z_size=args.z_size,
-        loss_func=nn.BCELoss(),
+        loss_func=args.loss_func,
     )
     train_model(vae, dataset_loader,
             epochs=args.run_epochs,
