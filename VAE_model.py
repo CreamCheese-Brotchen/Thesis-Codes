@@ -221,9 +221,9 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
         writer.add_images('original vs x_reconstructed', stacked_images, epoch+1)
 
         print('epoch ', epoch,
-              ", recons_loss:", reconstruction_loss.detach().numpy(),
-              ", k1_loss:", kl_divergence_loss.detach().numpy(),
-              ", total loss:", total_loss.detach().numpy())
+              ", recons_loss:", reconstruction_loss.detach().cpu().numpy(),
+              ", k1_loss:", kl_divergence_loss.detach().cpu().numpy(),
+              ", total loss:", total_loss.detach().cpu().numpy())
         
     writer.close()
         
