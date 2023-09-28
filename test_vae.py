@@ -85,7 +85,7 @@ if __name__ == '__main__':
         print("using the latent_dim Param from the args:", GANs_latentDim)
     else:
         batch_images, _, _ = next(iter(dataset_loader['train']))
-        temp_singleImg = batch_images[0].unsqueeze(0)
+        temp_singleImg = batch_images[0].unsqueeze(0).to(device)
         GANs_latentDim = len(vae.get_latent(temp_singleImg)[0].view(1, -1).squeeze(0))  # c.a. 2048 (128*4*4)
         
         print("using the latent_dim Param from the trained VAE:", GANs_latentDim)
