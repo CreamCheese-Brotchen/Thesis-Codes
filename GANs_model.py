@@ -217,9 +217,9 @@ class gans_trainer():
             # Save Losses for plotting later 
             with torch.no_grad():
                 fakeImg_training = self.netG(self.fixed_noise).detach().cpu()
-                writer.add_scalar('loss_D', D_G_z1, epoch+1)
-                writer.add_scalar('loss_G', D_G_z2, epoch+1)
-                writer.add_image('gans reconstructed img', fakeImg_training[-1], epoch+1)
+                writer.add_scalar('GANs/loss_D', D_G_z1, epoch+1)
+                writer.add_scalar('GANs/loss_G', D_G_z2, epoch+1)
+                writer.add_image('GANs/recons_imgs', fakeImg_training[-1], epoch+1)
 
             writer.close()
 
@@ -251,10 +251,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--dataset', type=str, default='MNIST', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
     parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
-    parser.add_argument('--tensorboard_comment', type=str, default='debug', help='Comment to append to tensorboard logs')
+    parser.add_argument('--tensorboard_comment', type=str, default='gans test_run', help='Comment to append to tensorboard logs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+    parser.add_argument('--latent_dim', type=int, default=100, help='Size of the latent vector for the GANs')
 
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
@@ -272,13 +273,12 @@ if __name__ == '__main__':
     dataset_loaders = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
     image_size = dataset_loaders['train'].dataset[0][0].shape[1]
-    latent_dim = 100
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)
-    netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=latent_dim).to(device)
+    netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=args.latent_dim).to(device)
     netD.apply(weights_init)
     netG.apply(weights_init)
-    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loaders, num_channel=num_channel, input_size=image_size, latent_dim=100,
+    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loaders, num_channel=num_channel, input_size=image_size, latent_dim=args.latent_dim,
                            num_epochs=args.run_epochs, batch_size=args.batch_size, lr=args.lr, criterion=nn.BCELoss(),
                            tensorboard_comment=args.tensorboard_comment)
     trainer.training_steps()

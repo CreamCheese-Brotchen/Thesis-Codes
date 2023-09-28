@@ -87,13 +87,13 @@ class VAE(nn.Module):
     def get_latent(self, x):
         encoded = self.encoder(x)
         mean, logvar = self.q(encoded)
-        z = self.z(mean, logvar)
-        z_projected = self.project(z).view(
-            -1, self.kernel_num,
-            self.feature_size,
-            self.feature_size,
-        )
-        return z_projected
+        z = self.z(mean, logvar)  # z.shape = (batch_size, 128)
+        # z_projected = self.project(z).view(
+        #     -1, self.kernel_num,
+        #     self.feature_size,
+        #     self.feature_size,
+        # )
+        return z
     # ==============
     # VAE components
     # ==============
@@ -218,8 +218,8 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
         original_img = x[-1].unsqueeze(0)
         reconstructed_img = x_reconstructed[-1].unsqueeze(0)
         stacked_images = torch.cat([original_img, reconstructed_img])
-        writer.add_scalar('total loss during training', total_loss, epoch+1)
-        writer.add_images('original vs x_reconstructed', stacked_images, epoch+1)
+        writer.add_scalar('vae/total loss during training', total_loss, epoch+1)
+        writer.add_images('vae/original vs x_reconstructed', stacked_images, epoch+1)
 
         print('epoch ', epoch,
               ", recons_loss:", reconstruction_loss.detach().cpu().numpy(),
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-    parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
+    parser.add_argument('--tensorboard_comment', type=str, default='vae test_run', help='Comment to append to tensorboard logs')
     parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
     parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")

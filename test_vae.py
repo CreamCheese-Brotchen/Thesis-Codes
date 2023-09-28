@@ -84,11 +84,12 @@ if __name__ == '__main__':
         GANs_latentDim = args.gans_latentDim
         print("using the latent_dim Param from the args:", GANs_latentDim)
     else:
-        batch_images, _, _ = next(iter(dataset_loader['train']))
-        temp_singleImg = batch_images[0].unsqueeze(0).to(device)
-        GANs_latentDim = len(vae.get_latent(temp_singleImg)[0].view(1, -1).squeeze(0))  # c.a. 2048 (128*4*4)
-        
+        # batch_images, _, _ = next(iter(dataset_loader['train']))
+        # temp_singleImg = batch_images[0].unsqueeze(0).to(device)
+        # GANs_latentDim = len(vae.get_latent(temp_singleImg)[0].view(1, -1).squeeze(0))  # c.a. 2048 (128*4*4)
+        GANs_latentDim = args.z_size
         print("using the latent_dim Param from the trained VAE:", GANs_latentDim)
+
     netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)
     netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=GANs_latentDim).to(device)
     netD.apply(weights_init)
@@ -99,9 +100,12 @@ if __name__ == '__main__':
     trainer.training_steps()
 
     if not isinstance(args.gans_latentDim, int):
+        batch_images, _, _ = next(iter(dataset_loader['train']))
         gans_vaeLatent_writer= SummaryWriter(comment="using vae latent for generating imgs with GANs")
         batch_vaeLatent = vae.get_latent(batch_images.to(device))  #.view(2, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
-        new_size = (batch_vaeLatent.size(0), -1, 1, 1)
+        # new_size = (batch_vaeLatent.size(0), -1, 1, 1)
+        # batch_vaeLatent = batch_vaeLatent.view(new_size)
+        new_size = (batch_vaeLatent.size(0), batch_vaeLatent.size(1), 1, 1)
         batch_vaeLatent = batch_vaeLatent.view(new_size)
         result = trainer.get_imgs(batch_vaeLatent)  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
         combine_imgs = torch.cat((batch_images[:8], result[:8]), 0)
