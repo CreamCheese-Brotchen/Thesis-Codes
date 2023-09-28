@@ -106,6 +106,7 @@ if __name__ == '__main__':
         result = trainer.get_imgs(batch_vaeLatent)  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
         combine_imgs = torch.cat((batch_images[:8], result[:8]), 0)
         gans_vaeLatent_writer.add_images("original vs vaeLatent_GANs_imgs", combine_imgs, dataformats="NCHW", global_step=0)
+        gans_vaeLatent_writer.close()
 
 
 

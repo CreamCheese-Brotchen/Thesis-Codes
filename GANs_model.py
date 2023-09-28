@@ -219,7 +219,7 @@ class gans_trainer():
                 fakeImg_training = self.netG(self.fixed_noise).detach().cpu()
                 writer.add_scalar('loss_D', D_G_z1, epoch+1)
                 writer.add_scalar('loss_G', D_G_z2, epoch+1)
-                writer.add_image('fake_images', fakeImg_training[-1], epoch+1)
+                writer.add_image('gans reconstructed img', fakeImg_training[-1], epoch+1)
 
             writer.close()
 
