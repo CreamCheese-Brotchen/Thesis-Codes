@@ -146,10 +146,9 @@ class gans_trainer():
         self.latent_dim = latent_dim
         self.optimizerD = torch.optim.Adam(self.netD.parameters(), lr=self.lr, betas=(0.5, 0.999))
         self.optimizerG = torch.optim.Adam(self.netG.parameters(), lr=self.lr, betas=(0.5, 0.999))
-        self.fixed_noise = torch.randn(self.batch_size, self.latent_dim, 1, 1)  #是否是用fixed_noise, 或者是每个epoch都用不同的noise
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.fixed_noise = torch.randn(self.batch_size, self.latent_dim, 1, 1, device=self.device)  #是否是用fixed_noise, 或者是每个epoch都用不同的noise
         self.tensorboard_comment = tensorboard_comment
-        self.fixed_noise = torch.randn(1, self.latent_dim, 1, 1, device=self.device) # to viszualize the training process with one img
 
     def training_steps(self):
         print("Starting Training Loop...")
@@ -233,6 +232,11 @@ class gans_trainer():
         self.netG.eval()
         generated_imags = self.netG(customed_latent)
         return generated_imags
+    
+    def get_imgs(self, latent_vector):
+        with torch.no_grad():
+          fakeImg = self.netG(latent_vector.to(self.device)).detach().cpu()
+          return fakeImg
 
     # def get_fake_images(self, image_loader):
         

@@ -272,7 +272,8 @@ if __name__ == '__main__':
             epochs=args.run_epochs,
             lr=args.lr,
             weight_decay=args.weight_decay,
-        )
+            tensorboard_comment = args.tensorboard_comment,
+            )
     
     # ##############################
     # ## GANs

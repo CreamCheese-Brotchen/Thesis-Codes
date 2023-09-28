@@ -24,17 +24,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='VAE & GANs Training script')
     
     parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-    parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
-    
-    parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
+
+    # vae
+    parser.add_argument('--vae_runEpochs', type=int, default=5, help='Number of epochs to run')
+    parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")
+    parser.add_argument('--vae_tensorboard_comment', type=str, default='vae test_run', help='Comment to append to tensorboard logs')
+    parser.add_argument('--vae_lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
     parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
     parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay")
 
     parser.add_argument("--gans_latentDim", default=100, help="Size of the latent vector for the GANs")  # if use "vae", input with vae
+    parser.add_argument('--gans_runEpochs', type=int, default=5, help='Number of epochs to run')
+    parser.add_argument('--gans_lr', type=float, default=0.0001, help='Learning rate')
+    parser.add_argument('--gans_tensorboard_comment', type=str, default='gans test_run', help='Comment to append to tensorboard logs')
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
 
@@ -60,13 +65,14 @@ if __name__ == '__main__':
         channel_num=num_channel,
         kernel_num=args.kernel_num,
         z_size=args.z_size,
-        loss_func=nn.BCELoss(),  # if 不给loss_func, 默认使用nn.BCELoss(size=False)/x.size(0) 
+        loss_func=args.vae_lossFunc,  # if 不给loss_func, 默认使用nn.BCELoss(size=False)/x.size(0) 
     )
     print("VAE starts training")
     train_model(vae, dataset_loader,
-            epochs=args.run_epochs,
-            lr=args.lr,
+            epochs=args.vae_runEpochs,
+            lr=args.vae_lr,
             weight_decay=args.weight_decay,
+            tensorboard_comment=args.vae_tensorboard_comment,
         )
     
     ##############################
@@ -87,17 +93,20 @@ if __name__ == '__main__':
     netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=GANs_latentDim).to(device)
     netD.apply(weights_init)
     netG.apply(weights_init)
-    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loader, num_channel=num_channel, input_size=image_size, latent_dim=100,
-                           num_epochs=args.run_epochs, batch_size=args.batch_size, lr=args.lr, criterion=nn.BCELoss(),
-                           tensorboard_comment=args.tensorboard_comment)
+    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loader, num_channel=num_channel, input_size=image_size, latent_dim=GANs_latentDim,
+                           num_epochs=args.gans_runEpochs, batch_size=args.batch_size, lr=args.gans_lr, criterion=nn.BCELoss(),
+                           tensorboard_comment=args.gans_tensorboard_comment)
     trainer.training_steps()
 
     if not isinstance(args.gans_latentDim, int):
-      gans_vaeLatent_writer= SummaryWriter(comment="using vae latent for generating imgs with GANs")
-      batch_vaeLatent = vae.get_latent(batch_images).view(3, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
-      result = trainer.get_imgs(batch_vaeLatent.view(args.batch_size, GANs_latentDim, 1,1))  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
-      gans_vaeLatent_writer.add_images("orginal_batch_imgs", batch_images, dataformats="NCHW", global_step=0)
-      gans_vaeLatent_writer.add_images("vae_latent_GANs_imgs", result, dataformats="NCHW", global_step=0)
+        gans_vaeLatent_writer= SummaryWriter(comment="using vae latent for generating imgs with GANs")
+        batch_vaeLatent = vae.get_latent(batch_images)  #.view(2, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
+        new_size = (batch_vaeLatent.size(0), -1, 1, 1)
+        batch_vaeLatent = batch_vaeLatent.view(new_size)
+        result = trainer.get_imgs(batch_vaeLatent.view(args.batch_size, GANs_latentDim, 1,1))  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
+        combine_imgs = torch.cat((batch_images[:8], result[:8]), 0)
+        gans_vaeLatent_writer.add_images("original vs vaeLatent_GANs_imgs", combine_imgs, dataformats="NCHW", global_step=0)
+
 
 
 
