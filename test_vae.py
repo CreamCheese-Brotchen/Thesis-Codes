@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     if not isinstance(args.gans_latentDim, int):
         gans_vaeLatent_writer= SummaryWriter(comment="using vae latent for generating imgs with GANs")
-        batch_vaeLatent = vae.get_latent(batch_images)  #.view(2, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
+        batch_vaeLatent = vae.get_latent(batch_images.to(device))  #.view(2, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
         new_size = (batch_vaeLatent.size(0), -1, 1, 1)
         batch_vaeLatent = batch_vaeLatent.view(new_size)
         result = trainer.get_imgs(batch_vaeLatent.view(args.batch_size, GANs_latentDim, 1,1))  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
