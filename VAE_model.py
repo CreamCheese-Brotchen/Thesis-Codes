@@ -95,7 +95,7 @@ class VAE(nn.Module):
         return z
     
     def get_singleImg(self, x):
-        _, singleImg = self.forward(x)
+        _, singleImg = self.forward(x.unsqueeze(0))
         return singleImg
     # ==============
     # VAE components

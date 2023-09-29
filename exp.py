@@ -61,9 +61,10 @@ if __name__ == '__main__':
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
   parser.add_argument("--vae_weightDecay", type=float, default=0.1, help="VAE Weight decay")
   parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
+  parser.add_argument('--vae_tensorboardComment', type=str, default='debug with vae as augmentation', help='tensorboard comment for vae')
 
   parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
-  parser.add_argument('--GANs_latentDim', type=int, default=100, help='latent dim for GANs')
+  parser.add_argument('--GANs_latentDim', type=int, default=128, help='latent dim for GANs')
   parser.add_argument('--GANs_lr', type=float, default=0.001, help='learning rate for GANs')
   parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs', help='tensorboard comment for GANs')
 
@@ -105,14 +106,23 @@ if __name__ == '__main__':
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
 
   # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
-  if args.accumulation_steps:
-    lr_trainerSteps = args.accumulation_steps
+  if args.customLr_flag:
+    suggested_lr = args.lr
   else:
-    lr_trainerSteps = 1
-  lr_trainerParams = {'max_epochs': 100, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
-  lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
-  suggested_lr = lr_finder.search()
-  print("suggested lr: ", suggested_lr)
+    if args.accumulation_steps:
+      lr_trainerSteps = args.accumulation_steps
+      lrSearch_epoch = 100
+      lr_trainerSteps = 100
+    else:
+      lr_trainerSteps = 1
+      lrSearch_epoch = 100
+      lr_trainerSteps = 100
+    lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
+    lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
+    search_suggested_lr = lr_finder.search()
+    if search_suggested_lr == None:
+      suggested_lr = args.lr
+    print("using trainer.suggested lr: ", suggested_lr)
   
   ############################
   # Augmentation Part
@@ -143,16 +153,17 @@ if __name__ == '__main__':
     # vae_trainer.tune(vae_model, dataset_loaders['train'])
     # vae_trainer.fit(vae_model, dataset_loaders['train'])
     # passing the vae trainer to the model_trainer
-    train_model(vae_model, dataset_loaders['train'],
+    train_model(vae_model, dataset_loaders,
             epochs=args.vae_trainEpochs,
             lr=args.vae_lr,
             weight_decay=args.vae_weightDecay,
-            tensorboard_comment = args.vae_weightDecay,
+            tensorboard_comment = args.vae_tensorboardComment,
             )
     augmentationType = args.augmentation_type
     augmentationTransforms = vae_augmentation
     augmentationModel = vae_model
-    # augmentationTrainer = vae_trainer
+    augmentationTrainer = None
+
   #############################
   elif args.augmentation_type == "GANs":
     print('using GANs augmentation')
@@ -181,7 +192,6 @@ if __name__ == '__main__':
     adjusted_lr = args.lr
   else:
     adjusted_lr = suggested_lr
-    print("using suggested lr: ", suggested_lr)
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,

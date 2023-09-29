@@ -254,7 +254,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-    parser.add_argument('--latent_dim', type=int, default=100, help='Size of the latent vector for the GANs')
+    parser.add_argument('--latent_dim', type=int, default=128, help='Size of the latent vector for the GANs')
 
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
