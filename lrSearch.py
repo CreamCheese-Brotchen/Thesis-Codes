@@ -1,16 +1,8 @@
-from sklearn.model_selection import GridSearchCV
-from torchvision.models import resnet18, ResNet18_Weights
 import torch
-from torchvision import transforms
-from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning import loggers as pl_loggers
 import pytorch_lightning as pl
 from torch.utils.tensorboard import SummaryWriter
-import torchmetrics
-from torch.autograd import Variable
-from torch.distributions import Categorical
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-import numpy as np
 import torch.nn as nn
 from lightning.pytorch.tuner.tuning import Tuner
 
