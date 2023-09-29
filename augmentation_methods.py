@@ -52,7 +52,8 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
-            data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
+            data = self.model.get_singleImg(data)
+            # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
@@ -83,12 +84,15 @@ class AugmentedDataset(Dataset):
 #################################################################################################################
 #### VAE Augmentation Methods
 #################################################################################################################
-def vae_augmentation(data, model, model_transforms):
-    data_pil = torch.utils.data.DataLoader([data], batch_size=1, shuffle=False)
-    augmented_data_pil = model_transforms.predict(model=model, dataloaders=data_pil) #model=model, trainer.predict()
-    augmented_data_resize = augmented_data_pil[0].squeeze()
-    augmented_data_tensor = augmented_data_resize
-    return augmented_data_tensor
+def vae_augmentation(data, model, model_transforms=None):
+    # data_pil = torch.utils.data.DataLoader([data], batch_size=1, shuffle=False)
+    # augmented_data_pil = model_transforms.predict(model=model, dataloaders=data_pil) #model=model, trainer.predict()
+    # augmented_data_resize = augmented_data_pil[0].squeeze()
+    # augmented_data_tensor = augmented_data_resize
+    model.eval()
+    with torch.no_grad():
+      augmented_data = model.get_singleImg(data)
+    return augmented_data
 
 
 

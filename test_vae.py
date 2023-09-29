@@ -72,9 +72,8 @@ if __name__ == '__main__':
             epochs=args.vae_runEpochs,
             lr=args.vae_lr,
             weight_decay=args.weight_decay,
-            tensorboard_comment=args.vae_tensorboard_comment,
-        )
-    
+            tensorboard_comment = args.vae_tensorboard_comment,
+            )
     ##############################
     ## GANs
     ##############################

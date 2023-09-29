@@ -82,7 +82,6 @@ class VAE(nn.Module):
         # return the parameters of distribution of q given x and the reconstructed image.
         return (mean, logvar), x_reconstructed
 
-
     # intergrate the latent dim from encoder with GANs model
     def get_latent(self, x):
         encoded = self.encoder(x)
@@ -94,6 +93,10 @@ class VAE(nn.Module):
         #     self.feature_size,
         # )
         return z
+    
+    def get_singleImg(self, x):
+        _, singleImg = self.forward(x)
+        return singleImg
     # ==============
     # VAE components
     # ==============

@@ -16,12 +16,10 @@ from torchvision.models import resnet18, ResNet18_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import seaborn as sns
 import matplotlib
 from more_itertools import flatten
 import itertools
 from collections import Counter
-import copy
 from pytorch_lightning import LightningModule, Trainer
 import torch.nn as nn
 # from memory_profiler import profile
@@ -29,7 +27,7 @@ import torch.nn as nn
 
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
-from VAE_model import VAE, MyVAE
+from VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
 from GANs_model import Discriminator, Generator, gans_trainer, weights_init
 from lrSearch import lrSearch
@@ -58,6 +56,11 @@ if __name__ == '__main__':
 
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
   parser.add_argument('--vae_trainEpochs', type=int, default=100, help='Number of epochs to train vae')
+  parser.add_argument('--vae_kernelNum', type=int, default=128, help='Number of kernels in the first layer of the VAE')
+  parser.add_argument("--vae_zSize", type=int, default=128, help="Size of the latent vector")
+  parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
+  parser.add_argument("--vae_weightDecay", type=float, default=0.1, help="VAE Weight decay")
+  parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
 
   parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
   parser.add_argument('--GANs_latentDim', type=int, default=100, help='latent dim for GANs')
@@ -125,21 +128,31 @@ if __name__ == '__main__':
   #############################
   elif args.augmentation_type == "vae":
     print('using vae augmentation')
-    input_height = image_size
-    vae_model = MyVAE(input_height=input_height, latent_dim=256)
-    # vae_model = VAE(input_height=input_height)
+    vae_model = VAE(
+        image_size=image_size,
+        channel_num=num_channel,
+        kernel_num=args.vae_kernelNum,
+        z_size=args.vae_zSize,
+        loss_func=args.vae_lossFunc,
+    )
     if args.reduce_dataset:
       vae_trainEpochs = 10
     else: 
       vae_trainEpochs = args.vae_trainEpochs
-    vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
-    vae_trainer.tune(vae_model, dataset_loaders['train'])
-    vae_trainer.fit(vae_model, dataset_loaders['train'])
+    # vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
+    # vae_trainer.tune(vae_model, dataset_loaders['train'])
+    # vae_trainer.fit(vae_model, dataset_loaders['train'])
     # passing the vae trainer to the model_trainer
+    train_model(vae_model, dataset_loaders['train'],
+            epochs=args.vae_trainEpochs,
+            lr=args.vae_lr,
+            weight_decay=args.vae_weightDecay,
+            tensorboard_comment = args.vae_weightDecay,
+            )
     augmentationType = args.augmentation_type
     augmentationTransforms = vae_augmentation
     augmentationModel = vae_model
-    augmentationTrainer = vae_trainer
+    # augmentationTrainer = vae_trainer
   #############################
   elif args.augmentation_type == "GANs":
     print('using GANs augmentation')

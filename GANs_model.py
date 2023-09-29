@@ -183,6 +183,7 @@ class gans_trainer():
 
                 ## Train with all-fake batch
                 # Generate batch of latent vectors of latent_dim as input for G
+                self.netG.eval()  # new adjustment 01
                 noise = torch.randn(b_size, self.latent_dim, 1, 1, device=self.device)
                 # Generate fake image batch with G
                 fake = self.netG(noise)   # fake_img
@@ -196,22 +197,19 @@ class gans_trainer():
                 D_G_z1 = errD_fake.mean().item()   # avg_loss_net
                 # Compute error of D as sum over the fake and the real batches
                 errD = errD_real + errD_fake
-                # Update D
                 self.optimizerD.step()
 
                 ############################
                 # (2) Update G network: maximize log(D(G(z)))
                 ###########################
+                self.netG.train()  # new adjustment 02
                 self.netG.zero_grad()
                 label.fill_(real_label)  # fake labels are real for generator cost
                 # Since we just updated D, perform another forward pass of all-fake batch through D
                 output = self.netD(fake).view(-1)
-                # Calculate G's loss based on this output
                 errG = self.criterion(output, label)
-                # Calculate gradients for G
                 errG.backward()
                 D_G_z2 = errG.mean().item()  # the original: output.mean().item()
-                # Update G
                 self.optimizerG.step()
 
             # Save Losses for plotting later 
@@ -234,6 +232,7 @@ class gans_trainer():
         return generated_imags
     
     def get_imgs(self, latent_vector):
+        self.netG.eval()
         with torch.no_grad():
           fakeImg = self.netG(latent_vector.to(self.device)).detach().cpu()
           return fakeImg
