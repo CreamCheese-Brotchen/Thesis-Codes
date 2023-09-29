@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from torch.utils.tensorboard import SummaryWriter
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 import torch.nn as nn
-from lightning.pytorch.tuner.tuning import Tuner
+
 
 
 
