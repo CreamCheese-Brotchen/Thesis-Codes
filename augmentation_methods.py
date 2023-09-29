@@ -52,7 +52,7 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
-            data = self.model.get_singleImg(data).squeeze(0)
+            data = self.model.get_singleImg(data).squeeze(0).detach().cpu()
             # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
