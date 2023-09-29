@@ -218,8 +218,8 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
         original_img = x[-1].unsqueeze(0)
         reconstructed_img = x_reconstructed[-1].unsqueeze(0)
         stacked_images = torch.cat([original_img, reconstructed_img])
-        writer.add_scalar('vae/total loss during training', total_loss, epoch+1)
-        writer.add_images('vae/original vs x_reconstructed', stacked_images, epoch+1)
+        writer.add_scalar('Vae/total loss', total_loss, epoch+1)
+        writer.add_images('Vae/orig vs x_recons imgs ', stacked_images, epoch+1)
 
         print('epoch ', epoch,
               ", recons_loss:", reconstruction_loss.detach().cpu().numpy(),
