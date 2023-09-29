@@ -119,8 +119,8 @@ if __name__ == '__main__':
       lr_trainerSteps = 100
     lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
     lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
-    search_suggested_lr = lr_finder.search()
-    if search_suggested_lr == None:
+    suggested_lr = lr_finder.search()
+    if suggested_lr == None:
       suggested_lr = args.lr
     print("using trainer.suggested lr: ", suggested_lr)
   
@@ -188,15 +188,12 @@ if __name__ == '__main__':
     augmentationModel = None
     augmentationTrainer = None
 
-  if args.customLr_flag:
-    adjusted_lr = args.lr
-  else:
-    adjusted_lr = suggested_lr
+
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                  lr=adjusted_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
+                                  lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
                                   k_epoch_sampleSelection=args.k_epoch_sampleSelection,
                                   augmente_epochs_list=args.augmente_epochs_list
                                 )
