@@ -65,7 +65,7 @@ class VAE(nn.Module):
 
     def forward(self, x):
         # encode x
-        encoded = self.encoder(x)
+        encoded = self.encoder(x.to(self.device))
 
         # sample latent code z from q given x.
         mean, logvar = self.q(encoded)
@@ -84,6 +84,7 @@ class VAE(nn.Module):
 
     # intergrate the latent dim from encoder with GANs model
     def get_latent(self, x):
+        
         encoded = self.encoder(x)
         mean, logvar = self.q(encoded)
         z = self.z(mean, logvar)  # z.shape = (batch_size, 128)
