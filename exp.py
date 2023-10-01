@@ -108,6 +108,7 @@ if __name__ == '__main__':
   # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
   if args.customLr_flag:
     suggested_lr = args.lr
+    print("using given custom_lr: ", suggested_lr)
   else:
     if args.accumulation_steps:
       lr_trainerSteps = args.accumulation_steps
