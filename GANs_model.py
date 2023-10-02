@@ -169,7 +169,7 @@ class gans_trainer():
                 ###########################
                 ## Train with all-real batch
                 self.netD.zero_grad()
-                # real_cpu = data[0].to(device)
+
                 real_cpu = img_tensor.to(self.device)
                 b_size = real_cpu.size(0)       # batch_size
                 label = torch.full((b_size,), real_label, dtype=torch.float, device=self.device)
@@ -183,7 +183,6 @@ class gans_trainer():
 
                 ## Train with all-fake batch
                 # Generate batch of latent vectors of latent_dim as input for G
-                self.netG.eval()  # new adjustment 01
                 noise = torch.randn(b_size, self.latent_dim, 1, 1, device=self.device)
                 # Generate fake image batch with G
                 fake = self.netG(noise)   # fake_img
@@ -202,7 +201,6 @@ class gans_trainer():
                 ############################
                 # (2) Update G network: maximize log(D(G(z)))
                 ###########################
-                self.netG.train()  # new adjustment 02
                 self.netG.zero_grad()
                 label.fill_(real_label)  # fake labels are real for generator cost
                 # Since we just updated D, perform another forward pass of all-fake batch through D
@@ -215,8 +213,8 @@ class gans_trainer():
             # Save Losses for plotting later 
             with torch.no_grad():
                 fakeImg_training = self.netG(self.fixed_noise).detach().cpu()
-                writer.add_scalar('GANs/loss_D', D_G_z1, epoch+1)
-                writer.add_scalar('GANs/loss_G', D_G_z2, epoch+1)
+                writer.add_scalar('GANs/loss_D', errD.item(), epoch+1)
+                writer.add_scalar('GANs/loss_G', errG.item(), epoch+1)
                 writer.add_image('GANs/recons_imgs', fakeImg_training[-1], epoch+1)
 
             writer.close()
@@ -234,7 +232,7 @@ class gans_trainer():
     def get_imgs(self, latent_vector):
         self.netG.eval()
         with torch.no_grad():
-          fakeImg = self.netG(latent_vector.to(self.device)).detach().cpu()
+          fakeImg = self.netG(latent_vector.to(self.device))   #.detach().cpu()
           return fakeImg
 
     # def get_fake_images(self, image_loader):

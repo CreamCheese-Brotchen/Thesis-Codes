@@ -3,31 +3,11 @@ import numpy as np
 import pandas as pd
 from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
-# from robust_attacks import CarliniL2
-import pytorch_lightning as pl
-# from pl_bolts.models.autoencoders import VAE
-
-# autoencoder libraries
+# autoencoer libraries
 import urllib.parse
 from argparse import ArgumentParser
-
 import torch
-from pytorch_lightning import LightningModule, Trainer, seed_everything
-from torch import nn
-from torch.nn import functional as F  # noqa: N812
 
-# from pl_bolts import _HTTPS_AWS_HUB
-# import pl_bolts.models.autoencoders.components
-# from pl_bolts.models.autoencoders import VAE
-
-from pl_bolts.models.autoencoders.components import (
-    resnet18_decoder,
-    resnet18_encoder,
-    resnet50_decoder,
-    resnet50_encoder,
-)
-
-from VAE_model import VAE
 
 
 
@@ -52,27 +32,28 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
-            data = self.model.get_singleImg(data).squeeze(0).detach().cpu()
+            data = self.model.get_singleImg(data).squeeze(0)
             # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
-                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                self.tf_writer.add_image('original & vae augmented imgs', combined_image, self.tensorboard_epoch)
+                combined_image = torch.cat((original_data, data.detach().cpu()), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image('Resnet_aug/original & vae augmented imgs', combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'simple':
             original_data = data
             data  = self.augmentation_transforms(data)
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                writer_comment = 'original & ' + str(self.augmentation_type) + ' augmented imgs'
+                writer_comment = 'Resnet_aug/original & ' + str(self.augmentation_type) + ' augmented imgs'
                 self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'GANs':
-            original_data = data
-            data  = self.augmentation_transforms(1).squeeze()  # 1: the num of imgs is 1, just one image; squeeze: remove the first dimension [1,3,32, 32] -> [3,32, 32]
+            original_data = data  
+            data = self.augmentation_transforms(data, latent_model=self.model, augmentation_model=self.model_transforms)  # model: vae_model, model_transforms: GANs_trainer
+            # data  = self.augmentation_transforms(1).squeeze()  # 1: the num of imgs is 1, just one image; squeeze: remove the first dimension [1,3,32, 32] -> [3,32, 32]
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                writer_comment = 'original & ' + str(self.augmentation_type) + ' augmented imgs'
+                writer_comment = 'Resnet_aug/original & ' + str(self.augmentation_type) + ' augmented imgs'
                 self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
 
         return data, label, idx
@@ -94,6 +75,17 @@ def vae_augmentation(data, model, model_transforms=None):
       augmented_data = model.get_singleImg(data)
     return augmented_data
 
+#################################################################################################################
+#### VAE Augmentation Methods
+#################################################################################################################
+def vae_gans_augmentation(data, latent_model, augmentation_model):
+    latent_model.eval()
+    with torch.no_grad():
+      vae_latent = latent_model.get_latent(data.unsqueeze(0))
+    new_size = (vae_latent.size(0), vae_latent.size(1), 1, 1)
+    vae_latent = vae_latent.view(new_size)
+    augmented_data = augmentation_model.get_imgs(vae_latent)
+    return augmented_data.squeeze()  # [3, 32, 32]
 
 
 #################################################################################################################

@@ -245,7 +245,7 @@ class Resnet_trainer():
             augmented_dataset.target_idx_list = list(augmemtation_id)
             augmented_dataset.tensorboard_epoch = epoch+1
             augmented_dataset.tf_writer = writer
-            print(f"augmentation at {epoch+1} epoch")
+            print(f"did augmentation at {epoch+1} epoch")
         #   else:
         #     print(f"no augmentation at {epoch} epoch")
 

@@ -26,7 +26,7 @@ import torch.nn as nn
 # import sys 
 
 from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
+from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation
 from VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
 from GANs_model import Discriminator, Generator, gans_trainer, weights_init
@@ -40,7 +40,7 @@ if __name__ == '__main__':
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
   parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
-  parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+  parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
   parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
   parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
@@ -55,7 +55,7 @@ if __name__ == '__main__':
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
 
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
-  parser.add_argument('--vae_trainEpochs', type=int, default=100, help='Number of epochs to train vae')
+  parser.add_argument('--vae_trainEpochs', type=int, default=10, help='Number of epochs to train vae')
   parser.add_argument('--vae_kernelNum', type=int, default=128, help='Number of kernels in the first layer of the VAE')
   parser.add_argument("--vae_zSize", type=int, default=128, help="Size of the latent vector")
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
@@ -64,9 +64,10 @@ if __name__ == '__main__':
   parser.add_argument('--vae_tensorboardComment', type=str, default='debug with vae as augmentation', help='tensorboard comment for vae')
 
   parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
-  parser.add_argument('--GANs_latentDim', type=int, default=128, help='latent dim for GANs')
-  parser.add_argument('--GANs_lr', type=float, default=0.001, help='learning rate for GANs')
-  parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs', help='tensorboard comment for GANs')
+  parser.add_argument('--GANs_latentDim', type=int, default=None, help='latent dim for GANs')
+  parser.add_argument('--GANs_lr', type=float, default=0.0001, help='learning rate for GANs')
+  parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs for resnet', help='tensorboard comment for GANs')
+  parser.add_argument('--vaeLatent_GANs', action='store_true', help='use vae latent dim for GANs')
 
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
@@ -168,20 +169,47 @@ if __name__ == '__main__':
   #############################
   elif args.augmentation_type == "GANs":
     print('using GANs augmentation')
-    latent_dim = args.GANs_latentDim
+    if args.GANs_latentDim is not False:
+      gans_latent_dim = args.vae_zSize
+      vae_for_gans = VAE(
+      image_size=image_size,
+      channel_num=num_channel,
+      kernel_num=args.vae_kernelNum,
+      z_size=args.vae_zSize,
+      loss_func=args.vae_lossFunc,)
+      train_model(vae_for_gans, dataset_loaders,
+          epochs=args.GANs_trainEpochs,
+          lr=args.lr,
+          weight_decay=args.vae_weightDecay,
+          tensorboard_comment = 'using vae latentDim for GANs',)
+      augmentationTransforms = vae_gans_augmentation # passing the trained_vae model
+    else:
+      gans_latent_dim = args.GANs_latentDim
+      
     netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)
-    netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=latent_dim).to(device)
+    netG = Generator(channel_num=num_channel, input_size=image_size, input_dim=gans_latent_dim).to(device)
     netD.apply(weights_init)
     netG.apply(weights_init)
-    trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loaders, num_channel=num_channel, input_size=image_size, latent_dim=latent_dim,
+    GANs_trainer = gans_trainer(netD=netD, netG=netG, dataloader=dataset_loaders, num_channel=num_channel, input_size=image_size, latent_dim=gans_latent_dim,
                            num_epochs=args.GANs_trainEpochs, batch_size=args.batch_size, lr=args.GANs_lr, criterion=torch.nn.BCELoss(),
                            tensorboard_comment=args.GANs_tensorboardComment)
-    trainer.training_steps()
-    # pasing aguments to model trainer
+    GANs_trainer.training_steps()
+        # batch_images, _, _ = next(iter(dataset_loader['train']))
+        # gans_vaeLatent_writer= SummaryWriter(comment="using vae latent for generating imgs with GANs")
+        # batch_vaeLatent = vae.get_latent(batch_images.to(device))  #.view(2, -1)  # batch_vaeLatent.shape = (3, 128*4*4)
+        # # new_size = (batch_vaeLatent.size(0), -1, 1, 1)
+        # # batch_vaeLatent = batch_vaeLatent.view(new_size)
+        # new_size = (batch_vaeLatent.size(0), batch_vaeLatent.size(1), 1, 1)
+        # batch_vaeLatent = batch_vaeLatent.view(new_size)
+        # result = trainer.get_imgs(batch_vaeLatent)  # input.shape = (batch_size, 128*4*4, 1, 1), output.shape = (batch_size, 3, 32, 32)
+        # combine_imgs = torch.cat((batch_images[:8], result[:8]), 0)
+        # gans_vaeLatent_writer.add_images("original vs vaeLatent_GANs_imgs", combine_imgs, dataformats="NCHW", global_step=0)
+        # gans_vaeLatent_writer.close()
+
     augmentationType = args.augmentation_type
-    augmentationTransforms = trainer.get_fake_images
-    augmentationModel = None
-    augmentationTrainer = None
+    augmentationTransforms = vae_gans_augmentation
+    augmentationModel = vae_for_gans
+    augmentationTrainer = GANs_trainer
   else:
     print('No augmentation')
     augmentationType = None

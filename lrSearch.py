@@ -8,7 +8,6 @@ import torch.nn as nn
 
 
 
-
 class LightningTransformer(pl.LightningModule):
     def __init__(self, model):
         super().__init__()

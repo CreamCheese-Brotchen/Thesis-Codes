@@ -253,31 +253,31 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
 
-    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
-        transformSize = transforms.Compose([
-            transforms.transforms.ToTensor(),
-        ])
-    elif args.dataset in ['Flowers102', 'Food101']:
-        transformsSize = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.transforms.ToTensor(),
-        ])
-    dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    num_channel = dataset_loader['train'].dataset[0][0].shape[0]
-    image_size = dataset_loader['train'].dataset[0][0].shape[1]
-    vae = VAE(
-        image_size=image_size,
-        channel_num=num_channel,
-        kernel_num=args.kernel_num,
-        z_size=args.z_size,
-        loss_func=args.loss_func,
-    )
-    train_model(vae, dataset_loader,
-            epochs=args.run_epochs,
-            lr=args.lr,
-            weight_decay=args.weight_decay,
-            tensorboard_comment = args.tensorboard_comment,
-            )
+    # if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+    #     transformSize = transforms.Compose([
+    #         transforms.transforms.ToTensor(),
+    #     ])
+    # elif args.dataset in ['Flowers102', 'Food101']:
+    #     transformsSize = transforms.Compose([
+    #         transforms.Resize((256, 256)),
+    #         transforms.transforms.ToTensor(),
+    #     ])
+    # dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+    # num_channel = dataset_loader['train'].dataset[0][0].shape[0]
+    # image_size = dataset_loader['train'].dataset[0][0].shape[1]
+    # vae = VAE(
+    #     image_size=image_size,
+    #     channel_num=num_channel,
+    #     kernel_num=args.kernel_num,
+    #     z_size=args.z_size,
+    #     loss_func=args.loss_func,
+    # )
+    # train_model(vae, dataset_loader,
+    #         epochs=args.run_epochs,
+    #         lr=args.lr,
+    #         weight_decay=args.weight_decay,
+    #         tensorboard_comment = args.tensorboard_comment,
+    #         )
     
     # ##############################
     # ## GANs
