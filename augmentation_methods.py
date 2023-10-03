@@ -32,11 +32,11 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
-            data = self.model.get_singleImg(data).squeeze(0)
+            data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32]
             # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
-                combined_image = torch.cat((original_data, data.detach().cpu()), dim=2)  # Concatenate images side by side
+                combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
                 self.tf_writer.add_image('Resnet_aug/original & vae augmented imgs', combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'simple':
             original_data = data

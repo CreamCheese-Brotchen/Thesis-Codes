@@ -118,7 +118,6 @@ if __name__ == '__main__':
     else:
       lr_trainerSteps = 1
       lrSearch_epoch = 100
-      lr_trainerSteps = 100
     lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
     lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
     suggested_lr = lr_finder.search()
@@ -146,7 +145,7 @@ if __name__ == '__main__':
         kernel_num=args.vae_kernelNum,
         z_size=args.vae_zSize,
         loss_func=args.vae_lossFunc,
-    )
+    ).to(device)
     if args.reduce_dataset:
       vae_trainEpochs = 10
     else: 
@@ -176,7 +175,7 @@ if __name__ == '__main__':
       channel_num=num_channel,
       kernel_num=args.vae_kernelNum,
       z_size=args.vae_zSize,
-      loss_func=args.vae_lossFunc,)
+      loss_func=args.vae_lossFunc,).to(device)
       train_model(vae_for_gans, dataset_loaders,
           epochs=args.GANs_trainEpochs,
           lr=args.lr,
