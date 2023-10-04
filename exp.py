@@ -112,9 +112,8 @@ if __name__ == '__main__':
     print("using given custom_lr: ", suggested_lr)
   else:
     if args.accumulation_steps:
-      lr_trainerSteps = args.accumulation_steps
       lrSearch_epoch = 100
-      lr_trainerSteps = 100
+      lr_trainerSteps = args.accumulation_steps
     else:
       lr_trainerSteps = 1
       lrSearch_epoch = 100
@@ -152,7 +151,7 @@ if __name__ == '__main__':
       vae_trainEpochs = args.vae_trainEpochs
     # vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
     # vae_trainer.tune(vae_model, dataset_loaders['train'])
-    # vae_trainer.fit(vae_model, dataset_loaders['train'])
+    # vae_trainer.fit(vae_model, dataset_loaders['train'])GANs_latentDim
     # passing the vae trainer to the model_trainer
     train_model(vae_model, dataset_loaders,
             epochs=args.vae_trainEpochs,
@@ -168,7 +167,8 @@ if __name__ == '__main__':
   #############################
   elif args.augmentation_type == "GANs":
     print('using GANs augmentation')
-    if args.GANs_latentDim is not False:
+    if not isinstance(args.GANs_latentDim, int):
+      print('using vae latent dim for GANs')
       gans_latent_dim = args.vae_zSize
       vae_for_gans = VAE(
       image_size=image_size,
@@ -183,6 +183,7 @@ if __name__ == '__main__':
           tensorboard_comment = 'using vae latentDim for GANs',)
       augmentationTransforms = vae_gans_augmentation # passing the trained_vae model
     else:
+      print('using given latent dim for GANs')
       gans_latent_dim = args.GANs_latentDim
       
     netD = Discriminator(in_channels=num_channel, image_size=image_size).to(device)

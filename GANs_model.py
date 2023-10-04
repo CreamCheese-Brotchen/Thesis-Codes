@@ -242,7 +242,6 @@ class gans_trainer():
     #     return fake_imgs
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Resnet Training script')
 
