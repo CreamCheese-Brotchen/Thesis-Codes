@@ -67,7 +67,7 @@ if __name__ == '__main__':
   parser.add_argument('--GANs_latentDim', type=int, default=None, help='latent dim for GANs')
   parser.add_argument('--GANs_lr', type=float, default=0.0001, help='learning rate for GANs')
   parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs for resnet', help='tensorboard comment for GANs')
-  parser.add_argument('--vaeLatent_GANs', action='store_true', help='use vae latent dim for GANs')
+  # parser.add_argument('--vaeLatent_GANs', action='store_true', help='use vae latent dim for GANs')
 
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)

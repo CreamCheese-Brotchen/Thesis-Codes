@@ -48,7 +48,7 @@ class AugmentedDataset(Dataset):
                 self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
           if self.augmentation_type == 'GANs':
             original_data = data  
-            data = self.augmentation_transforms(data, latent_model=self.model, augmentation_model=self.model_transforms)  # model: vae_model, model_transforms: GANs_trainer
+            data = self.augmentation_transforms(data, latent_model=self.model, augmentation_model=self.model_transforms).to(original_data.device)  # model: vae_model, model_transforms: GANs_trainer
             # data  = self.augmentation_transforms(1).squeeze()  # 1: the num of imgs is 1, just one image; squeeze: remove the first dimension [1,3,32, 32] -> [3,32, 32]
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
@@ -81,7 +81,7 @@ def vae_augmentation(data, model, model_transforms=None):
 def vae_gans_augmentation(data, latent_model, augmentation_model):
     latent_model.eval()
     with torch.no_grad():
-      vae_latent = latent_model.get_latent(data.unsqueeze(0))
+      vae_latent = latent_model.get_latent(data.unsqueeze(0).to(latent_model.device))
     new_size = (vae_latent.size(0), vae_latent.size(1), 1, 1)
     vae_latent = vae_latent.view(new_size)
     augmented_data = augmentation_model.get_imgs(vae_latent)
