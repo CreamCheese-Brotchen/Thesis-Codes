@@ -11,4 +11,10 @@ autoencoder.py
 new_testScript.sh
 test_vae.py
 new_gans_model.py
-
+test_plTrainer.ipynb
+testPy_folder
+lightning_bolts/*
+SRMNIST
+# GANs_folder/srgan_module.py
+# GANs_folder/srgan.py
+# GANs_folder/srresnet.py

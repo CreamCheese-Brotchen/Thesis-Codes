@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 import torchvision
 from torch import nn
 import argparse
-from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 import os
-from GANs_model import gans_trainer, Discriminator, Generator, weights_init
+from GANs_folder.GANs_model import gans_trainer, Discriminator, Generator, weights_init
 
 
 class VAE(nn.Module):
@@ -96,6 +96,8 @@ class VAE(nn.Module):
         return z
     
     def get_singleImg(self, x):
+        self.decoder.eval()
+        self.encoder.eval()
         _, singleImg = self.forward(x.unsqueeze(0))
         return singleImg
     # ==============
@@ -119,6 +121,11 @@ class VAE(nn.Module):
         else:
             # print('using default loss function')
             loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+            # loss =  tf.reduce_mean(
+            #     tf.reduce_sum(
+            #         keras.losses.binary_crossentropy(x, x_reconstructed), axis=(1, 2)
+            #     )
+            # )
         return loss
 
     def kl_divergence_loss(self, mean, logvar):

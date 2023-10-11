@@ -2,7 +2,7 @@ import torch
 from pytorch_lightning import loggers as pl_loggers
 import pytorch_lightning as pl
 from torch.utils.tensorboard import SummaryWriter
-from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 import torch.nn as nn
 
 

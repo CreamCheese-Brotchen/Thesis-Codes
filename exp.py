@@ -19,18 +19,26 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib
 from more_itertools import flatten
 import itertools
+from PIL import Image
 from collections import Counter
 from pytorch_lightning import LightningModule, Trainer
 import torch.nn as nn
 # from memory_profiler import profile
 # import sys 
 
-from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation
-from VAE_model import VAE, train_model
+# from augmentation_folder import dataset_loader, augmentation_methods
+# from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+# from GANs_folder import GANs_model
+# from VAE_folder import VAE_model
+# from param_tune_folder import lrSearch
+
+from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation
+from VAE_folder.VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
-from GANs_model import Discriminator, Generator, gans_trainer, weights_init
-from lrSearch import lrSearch
+from GANs_folder.GANs_model import Discriminator, Generator, gans_trainer, weights_init
+# import GANs_folder.srresnet_module 
+from param_tune_folder.lrSearch import lrSearch
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
@@ -46,6 +54,7 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
+  parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs"), help='Augmentation type')
   parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
@@ -83,7 +92,7 @@ if __name__ == '__main__':
     mean = (0.5,)
     std = (0.5, 0.5, 0.5) 
     transforms_smallSize = transforms.Compose([
-      # transforms.Resize((32, 32)),
+      # transforms.Resize((32, 32), interpolation=Image.BICUBIC),
       transforms.transforms.ToTensor(),
       # transforms.Normalize(mean, mean),
       ])
@@ -93,7 +102,7 @@ if __name__ == '__main__':
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     transforms_largSize= transforms.Compose([
-    transforms.Resize((256, 256)),
+    transforms.Resize((256, 256), interpolation=Image.BICUBIC),
     transforms.transforms.ToTensor(),
     transforms.Normalize(mean, std),])
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
@@ -217,13 +226,17 @@ if __name__ == '__main__':
     augmentationModel = None
     augmentationTrainer = None
 
+  if args.random_candidateSelection:
+    print('randomly select candidates in this run')
 
+  ############################
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
                                   lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
                                   k_epoch_sampleSelection=args.k_epoch_sampleSelection,
-                                  augmente_epochs_list=args.augmente_epochs_list
+                                  augmente_epochs_list=args.augmente_epochs_list,
+                                  random_candidateSelection=args.random_candidateSelection, 
                                 )
   model_trainer.train()

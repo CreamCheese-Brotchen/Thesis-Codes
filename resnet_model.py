@@ -24,10 +24,10 @@ from collections import Counter
 import copy
 from pytorch_lightning import LightningModule, Trainer
 
-from dataset_loader import IndexDataset, create_dataloaders
-from augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
-from VAE_model import VAE
-
+from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
+from VAE_folder.VAE_model import VAE
+import random
 # from memory_profiler import profile
 # import sys 
 
@@ -40,6 +40,7 @@ class Resnet_trainer():
                augmentation_model=None, model_transforms=None, 
                lr=0.001, l2=0, batch_size=64, accumulation_steps=2, 
                k_epoch_sampleSelection=3,
+               random_candidateSelection=None,
                augmente_epochs_list=None):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
@@ -61,9 +62,12 @@ class Resnet_trainer():
     self.accumulation_steps  = accumulation_steps # gradient accumulation steps
     self.augmente_epochs_list = augmente_epochs_list  # number of epochs for augmentation, list [20, 30, ...., 90]
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
+    self.random_candidateSelection = random_candidateSelection
      
 
-  def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, history_entropy_candidates, history_num_candidates, history_meanLoss_candidates):
+  def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, 
+                           history_entropy_candidates, history_num_candidates, history_meanLoss_candidates,
+                           randomCandidate_selection=False):
     """Input current id/entropy/loss of all samples, output the selected candidates with entropy > threshold, and update the history of candidates
     Args:
         current_allId_list (list): current id list of all samples
@@ -80,7 +84,13 @@ class Resnet_trainer():
     idList_allSamples = list(flatten(current_allId_list))
     entropy_allSamples = list(flatten(current_allEnt_list))   # flattened, a tensor list of entropy of candidates over batchs
     loss_allSamples = list(flatten(current_allLoss_list))
-    select_Candidates = [(idx,ent,loss) for (idx,ent,loss) in zip(idList_allSamples,entropy_allSamples,loss_allSamples) if ent >= self.entropy_threshold]     
+    if randomCandidate_selection:
+      combined_info = list(zip(idList_allSamples, entropy_allSamples, loss_allSamples))
+      np.random.shuffle(combined_info)
+      random_candidateNum = int(np.random.randint(0.15*len(idList_allSamples), 0.75*len(idList_allSamples)))  # num random_candidates
+      select_Candidates = combined_info[:random_candidateNum]
+    else:
+      select_Candidates = [(idx,ent,loss) for (idx,ent,loss) in zip(idList_allSamples,entropy_allSamples,loss_allSamples) if ent >= self.entropy_threshold]     
 
     # select_Candidates = [(idx,ent) for (idx,ent) in zip(idList_allSamples,entropy_allSamples) if ent >= self.entropy_threshold] 
     # candidates_id, candidates_entropy = list(zip(*select_Candidates)) 
@@ -205,13 +215,13 @@ class Resnet_trainer():
       # writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
       # start to collect the hard samples infos at the first epoch
-      # history_candidates_id, history_entropy_candidates, candidates_id
-                                                                                            # current_allId_list, current_allEnt_list, current_allLoss_list
+      # history_candidates_id, history_entropy_candidates, candidates_id                                                                                          # current_allId_list, current_allEnt_list, current_allLoss_list
       history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
-                                                                                            # history_candidates_id, history_entropy_candidates
-                                                                                              history_candidates_id=history_candidates_id, history_entropy_candidates=history_entropy_candidates,
-                                                                                            # history_num_candidates, history_meanLoss_candidates
-                                                                                              history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates)
+                                                                                              # history_candidates_id, history_entropy_candidates
+                                                                                                history_candidates_id=history_candidates_id, history_entropy_candidates=history_entropy_candidates,
+                                                                                              # history_num_candidates, history_meanLoss_candidates
+                                                                                                history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
+                                                                                                randomCandidate_selection=self.random_candidateSelection)
       # but only start to add them to the tensorboard at the start_epoch
       if epoch >= self.start_epoch:
         # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
@@ -228,16 +238,20 @@ class Resnet_trainer():
           
           # if augmente at th
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
-            if self.k_epoch_sampleSelection:
-              k_epoch_candidateId = self.commonId_k_epochSelection(history_candidates_id=history_candidates_id, k=self.k_epoch_sampleSelection)  # select the common candidates from the last 3 epochs
-              if len(k_epoch_candidateId) != 0:
-                augmemtation_id = k_epoch_candidateId
-                print(f"{len(augmemtation_id)} common_ids at epoch {epoch+1}")
-              else:
-                augmemtation_id = currentEpoch_candidateId
-                # print(f"no common_id in the previous k epochs")
-            else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
+            if self.random_candidateSelection:
               augmemtation_id = currentEpoch_candidateId
+            else:
+              if self.k_epoch_sampleSelection:
+                k_epoch_candidateId = self.commonId_k_epochSelection(history_candidates_id=history_candidates_id, k=self.k_epoch_sampleSelection)  # select the common candidates from the last 3 epochs
+                if len(k_epoch_candidateId) != 0:
+                  augmemtation_id = k_epoch_candidateId
+                  print(f"{len(augmemtation_id)} common_ids at epoch {epoch+1}")
+                else:
+                  augmemtation_id = currentEpoch_candidateId
+                  # print(f"no common_id in the previous k epochs")
+              else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
+                augmemtation_id = currentEpoch_candidateId
+
             
             # remain the same augmented dataset for the next 10 epochs
 
