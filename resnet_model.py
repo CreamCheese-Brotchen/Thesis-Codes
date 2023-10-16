@@ -144,7 +144,7 @@ class Resnet_trainer():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     self.model.to(device)
-    self.model.train()
+    # self.model.train()
 
     # basic train/test loss/accuracy
     avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
@@ -183,6 +183,7 @@ class Resnet_trainer():
       history_accuracy_candidates = list()
       history_meanLoss_candidates = list()
 
+      self.model.train()   # new_16.10.2023
       for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
@@ -223,10 +224,10 @@ class Resnet_trainer():
                                                                                                 history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
                                                                                                 randomCandidate_selection=self.random_candidateSelection)
       # but only start to add them to the tensorboard at the start_epoch
-      if epoch >= self.start_epoch:
+      # if epoch >= self.start_epoch:
         # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
-        writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
-        writer.add_scalar('Mean loss of hard samples', currentEpoch_lossCandidate, epoch+1)
+      writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
+      writer.add_scalar('Mean loss of hard samples', currentEpoch_lossCandidate, epoch+1)
       
       # if augmente
       if self.augmentation_type:
@@ -254,7 +255,6 @@ class Resnet_trainer():
 
             
             # remain the same augmented dataset for the next 10 epochs
-
             augmented_dataset.augmentation_type = self.augmentation_type
             augmented_dataset.target_idx_list = list(augmemtation_id)
             augmented_dataset.tensorboard_epoch = epoch+1

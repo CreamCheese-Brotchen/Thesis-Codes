@@ -15,6 +15,7 @@ test_plTrainer.ipynb
 testPy_folder
 lightning_bolts/*
 SRMNIST
+GANs_folder/save_trained_model
 # GANs_folder/srgan_module.py
 # GANs_folder/srgan.py
 # GANs_folder/srresnet.py

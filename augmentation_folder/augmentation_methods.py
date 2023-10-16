@@ -41,6 +41,7 @@ class AugmentedDataset(Dataset):
           if self.augmentation_type == 'simple':
             original_data = data
             data  = self.augmentation_transforms(data)
+            # print('aug_data.shape', data.shape)
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
