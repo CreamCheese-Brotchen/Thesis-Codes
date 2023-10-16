@@ -144,7 +144,6 @@ class Resnet_trainer():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     self.model.to(device)
-    # self.model.train()
 
     # basic train/test loss/accuracy
     avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
@@ -183,7 +182,7 @@ class Resnet_trainer():
       history_accuracy_candidates = list()
       history_meanLoss_candidates = list()
 
-      self.model.train()   # new_16.10.2023
+      self.model.train()  
       for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
@@ -266,7 +265,7 @@ class Resnet_trainer():
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
 
-      self.model.eval()
+      # self.model.eval()
       for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
         img_tensor = img_tensor.to(device)
         label_tensor = label_tensor.to(device)
