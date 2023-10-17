@@ -16,6 +16,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 import os
 from GANs_folder.GANs_model import gans_trainer, Discriminator, Generator, weights_init
+import tensorflow as tf
+import keras
 
 
 class VAE(nn.Module):
@@ -98,7 +100,8 @@ class VAE(nn.Module):
     def get_singleImg(self, x):
         self.decoder.eval()
         self.encoder.eval()
-        _, singleImg = self.forward(x.unsqueeze(0))
+        with torch.no_grad():
+            _, singleImg = self.forward(x.unsqueeze(0))
         return singleImg
     # ==============
     # VAE components
@@ -119,13 +122,12 @@ class VAE(nn.Module):
         if self.loss_func:
             loss = self.loss_func(x_reconstructed, x)
         else:
-            # print('using default loss function')
-            loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
-            # loss =  tf.reduce_mean(
-            #     tf.reduce_sum(
-            #         keras.losses.binary_crossentropy(x, x_reconstructed), axis=(1, 2)
-            #     )
-            # )
+            # print('using default loss function for vae')
+            # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+            # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) / x.size(0)
+            loss = F.mse_loss(x_reconstructed, x, reduction='mean')
+            # print('loss: ', loss)
+
         return loss
 
     def kl_divergence_loss(self, mean, logvar):
@@ -218,6 +220,7 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
             optimizer.zero_grad()
             (mean, logvar), x_reconstructed = model(x)
             reconstruction_loss = model.reconstruction_loss(x_reconstructed, x)
+            # print('reconstruction_loss.shape: ', reconstruction_loss)
             kl_divergence_loss = model.kl_divergence_loss(mean, logvar)
             total_loss = reconstruction_loss + kl_divergence_loss
 

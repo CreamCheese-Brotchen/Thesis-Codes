@@ -265,7 +265,7 @@ class Resnet_trainer():
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
 
-      # self.model.eval()
+      self.model.eval()
       for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
         img_tensor = img_tensor.to(device)
         label_tensor = label_tensor.to(device)
