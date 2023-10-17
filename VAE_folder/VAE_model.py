@@ -16,8 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 import os
 from GANs_folder.GANs_model import gans_trainer, Discriminator, Generator, weights_init
-import tensorflow as tf
-import keras
+
 
 
 class VAE(nn.Module):
