@@ -122,8 +122,10 @@ class VAE(nn.Module):
             loss = self.loss_func(x_reconstructed, x)
         else:
             # print('using default loss function for vae')
-            loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
-            # # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) / x.size(0)
+            # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+            # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
+            loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
+            # print('loss', loss)
             # loss = F.mse_loss(x_reconstructed, x, reduction='mean')
 
 
