@@ -94,7 +94,7 @@ def vae_gans_augmentation(data, latent_model, augmentation_model):
 #################################################################################################################
 def simpleAugmentation_selection(augmentation_name):
   if augmentation_name == "random_color":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ColorJitter(), transforms.ToTensor()])
+    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ColorJitter(brightness=.5, hue=.3), transforms.ToTensor()])
   elif augmentation_name == "center_crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(150), transforms.Resize(256), transforms.ToTensor()])
   elif augmentation_name == "gaussian_blur":

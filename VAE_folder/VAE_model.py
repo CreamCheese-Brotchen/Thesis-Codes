@@ -122,10 +122,10 @@ class VAE(nn.Module):
             loss = self.loss_func(x_reconstructed, x)
         else:
             # print('using default loss function for vae')
-            # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
-            # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) / x.size(0)
-            loss = F.mse_loss(x_reconstructed, x, reduction='mean')
-            # print('loss: ', loss)
+            loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+            # # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) / x.size(0)
+            # loss = F.mse_loss(x_reconstructed, x, reduction='mean')
+
 
         return loss
 
@@ -231,7 +231,7 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
         original_img = x[-1].unsqueeze(0)
         reconstructed_img = x_reconstructed[-1].unsqueeze(0)
         stacked_images = torch.cat([original_img, reconstructed_img])
-        writer.add_scalar('Vae/total loss', total_loss, epoch+1)
+        writer.add_scalar('Vae/total loss', total_loss.detach().cpu().numpy(), epoch+1)
         writer.add_images('Vae/orig vs x_recons imgs ', stacked_images, epoch+1)
 
         print('epoch ', epoch,
@@ -262,31 +262,31 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
 
-    # if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
-    #     transformSize = transforms.Compose([
-    #         transforms.transforms.ToTensor(),
-    #     ])
-    # elif args.dataset in ['Flowers102', 'Food101']:
-    #     transformsSize = transforms.Compose([
-    #         transforms.Resize((256, 256)),
-    #         transforms.transforms.ToTensor(),
-    #     ])
-    # dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    # num_channel = dataset_loader['train'].dataset[0][0].shape[0]
-    # image_size = dataset_loader['train'].dataset[0][0].shape[1]
-    # vae = VAE(
-    #     image_size=image_size,
-    #     channel_num=num_channel,
-    #     kernel_num=args.kernel_num,
-    #     z_size=args.z_size,
-    #     loss_func=args.loss_func,
-    # )
-    # train_model(vae, dataset_loader,
-    #         epochs=args.run_epochs,
-    #         lr=args.lr,
-    #         weight_decay=args.weight_decay,
-    #         tensorboard_comment = args.tensorboard_comment,
-    #         )
+    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+        transformSize = transforms.Compose([
+            transforms.transforms.ToTensor(),
+        ])
+    elif args.dataset in ['Flowers102', 'Food101']:
+        transformsSize = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.transforms.ToTensor(),
+        ])
+    dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+    num_channel = dataset_loader['train'].dataset[0][0].shape[0]
+    image_size = dataset_loader['train'].dataset[0][0].shape[1]
+    vae = VAE(
+        image_size=image_size,
+        channel_num=num_channel,
+        kernel_num=args.kernel_num,
+        z_size=args.z_size,
+        loss_func=args.loss_func,
+    )
+    train_model(vae, dataset_loader,
+            epochs=args.run_epochs,
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+            tensorboard_comment = args.tensorboard_comment,
+            )
     
     # ##############################
     # ## GANs
