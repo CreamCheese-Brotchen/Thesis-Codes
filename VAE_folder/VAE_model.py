@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 import torchvision
 from torch import nn
 import argparse
-from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+# from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 import os
-from GANs_folder.GANs_model import gans_trainer, Discriminator, Generator, weights_init
 
 
 
@@ -124,15 +124,19 @@ class VAE(nn.Module):
             # print('using default loss function for vae')
             # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
             # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
-            loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
+            # loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
             # print('loss', loss)
-            # loss = F.mse_loss(x_reconstructed, x, reduction='mean')
-
+            loss = F.mse_loss(x_reconstructed, x)
 
         return loss
 
     def kl_divergence_loss(self, mean, logvar):
-        return ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
+        kld_loss_new = torch.mean(-0.5 * torch.sum(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
+        # kl_original = ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
+
+        # print('k1_loss', kld_loss_new)
+        # print('kl_original', kl_original)
+        return kld_loss_new
 
 
     def sample(self, size):
@@ -231,7 +235,7 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
         
         ###### 
         original_img = x[-1].unsqueeze(0)
-        reconstructed_img = x_reconstructed[-1].unsqueeze(0)
+        reconstructed_img = x_reconstructed[-1].unsqueeze(0).detach()
         stacked_images = torch.cat([original_img, reconstructed_img])
         writer.add_scalar('Vae/total loss', total_loss.detach().cpu().numpy(), epoch+1)
         writer.add_images('Vae/orig vs x_recons imgs ', stacked_images, epoch+1)
@@ -259,7 +263,7 @@ if __name__ == '__main__':
     parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
     parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay")
+    parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay")
     parser.add_argument("--loss_func", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
     args = parser.parse_args()
     print(f"Script Arguments: {args}", flush=True)
