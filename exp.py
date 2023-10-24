@@ -30,8 +30,7 @@ from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders,
 from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation
 from VAE_folder.VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
-from GANs_folder.GANs_model import Discriminator, Generator, gans_trainer, weights_init
-# import GANs_folder.srresnet_module 
+from GANs_folder.GANs_model import Discriminator, Generator, gans_trainer, weights_init 
 from param_tune_folder.lrSearch import lrSearch
 
 if __name__ == '__main__':
@@ -47,6 +46,7 @@ if __name__ == '__main__':
   parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+  parser.add_argument('--pretrained_flag', action='store_true', help='Use pretrained model')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
@@ -80,7 +80,13 @@ if __name__ == '__main__':
   # dataloader & model define
   ###########################
   classes_num = model_numClasses(args.dataset)
-  resnet = resnet18(weights=None, num_classes=classes_num)
+  if args.pretrained_flag:
+    print('pretrained model')
+    resnet = resnet18(pretrained=True)
+    resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
+  else:
+    print('non-pretrained')
+    resnet = resnet18(weights=None, num_classes=classes_num)
   # adjust the kernel size and stride for diffierent dataset
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
     mean = (0.5,)
