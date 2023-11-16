@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 import urllib.parse
 from argparse import ArgumentParser
 import torch
-
+from torch.nn import functional as F
 
 
 
@@ -15,7 +15,9 @@ import torch
 class AugmentedDataset(Dataset):
     def __init__(self, dataset, target_idx_list, augmentation_transforms, 
                  augmentation_type, model=None, model_transforms=None,
-                 tensorboard_epoch=None, tf_writer=None):
+                 tensorboard_epoch=None, tf_writer=None,
+                 residual_connection_flag=False, residual_connection_method=None,
+                 denoise_flag=False, denoise_model=None):
         self.dataset = dataset
         self.target_idx_list = target_idx_list
         self.augmentation_transforms = augmentation_transforms
@@ -25,6 +27,11 @@ class AugmentedDataset(Dataset):
         self.tensorboard_epoch = tensorboard_epoch
         self.tf_writer = tf_writer
 
+        self.residual_connection_flag = residual_connection_flag
+        self.residual_connection_method = residual_connection_method
+        self.denoise_flag = denoise_flag
+        self.denoise_model = denoise_model
+
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
 
@@ -32,8 +39,21 @@ class AugmentedDataset(Dataset):
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
             original_data = data
-            data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32]
+            data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32], get the augmented img from the model
             # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
+
+            if self.residual_connection_flag:
+              # print('residual_connection_method' + self.residual_connection_method)
+              # print('type(self.residual_connection_method)', type(self.residual_connection_method))
+              if self.residual_connection_method[0] == 'sum':
+                data = data + original_data
+              elif self.residual_connection_method[0] == 'mean':
+                data = (data + original_data) / 2
+
+            if self.denoise_flag:
+              denoiser_data = self.denoise_model(original_data.unsqueeze(0))
+              data = data + denoiser_data.squeeze(0).detach()
+  
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
@@ -131,7 +151,64 @@ def simpleAugmentation_selection(augmentation_name):
   return augmentation_method
 
 
+#################################################################################################################
+#### residual connections
+#################################################################################################################
+def residual_connect(x_constructed, x_original, method='sum'):
+  if method == 'sum':
+    return x_constructed + x_original
+  elif method == 'mean':
+    return (x_constructed + x_original) / 2
+  
 
+#################################################################################################################
+#### Augmentation Methods
+#################################################################################################################
+def non_local_op(l, softmax=True, embed=False):
+
+    batch_size = list(l.shape)[0]
+    n_in, H, W = list(l.shape)[1:]
+
+    if embed:
+        theta_layer = torch.nn.Conv2d(in_channels=n_in, out_channels=n_in, kernel_size=1, padding='same')
+        phi_layer = torch.nn.Conv2d(in_channels=n_in, out_channels=n_in, kernel_size=1, padding='same')
+
+        theta = theta_layer(l)
+        phi = phi_layer(l)
+        g = l
+    else:
+        theta, phi, g = l, l, l
+        phi = phi.view(batch_size, n_in, -1).permute(0, 2, 1)
+        theta = theta.view(batch_size, n_in, -1)
+        g = g.view(batch_size, n_in, -1).permute(0, 2, 1)
+
+    if n_in > H * W or softmax:
+
+        f = torch.einsum('bij,bjk->bik', phi, theta) 
+
+        if softmax:
+            f = f / torch.sqrt(torch.tensor(theta.shape[1]))
+            f = F.softmax(f, dim=2)
+        f = torch.einsum('bik,bkj->bij', f, g)
+        f = f.permute(0, 2, 1)
+    else:
+        f = torch.einsum('nihw,njhw->nij', [phi, g])
+        f = torch.einsum('nij,nihw->njhw', [f, theta])
+    if not softmax:
+        f = f / torch.tensor(H * W, dtype=f.dtype)
+    return f.view(l.size())
+
+
+class DenoisingModel(torch.nn.Module):
+    def __init__(self):
+        super(DenoisingModel, self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels=3, out_channels=3, kernel_size=3, padding='same')
+        
+    def forward(self, input):
+        f = non_local_op(input, softmax=True, embed=False)
+        f1 = self.conv(f)
+        output = input + f1
+        return output
 
 
 

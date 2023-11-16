@@ -11,7 +11,7 @@ import torchvision
 from torch import nn
 import argparse
 # from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+# from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
@@ -38,16 +38,21 @@ class VAE(nn.Module):
               self._conv(kernel_num // 2, kernel_num),
           )
         elif self.image_size == 256:
-          self.encoder == nn.Sequential(            
-            self._conv(channel_num, kernel_num // 8),
+          self.encoder = nn.Sequential(
+            self._conv(channel_num, kernel_num // 16),
+            self._conv(kernel_num // 16, kernel_num // 8),
             self._conv(kernel_num // 8, kernel_num // 4),
             self._conv(kernel_num // 4, kernel_num // 2),
             self._conv(kernel_num // 2, kernel_num)
             )
-
+          
         # encoded feature's size and volume
-        self.feature_size = image_size // 8
-        self.feature_volume = kernel_num * (self.feature_size ** 2)
+        if self.image_size == 32:
+          self.feature_size = image_size // 8
+          self.feature_volume = kernel_num * (self.feature_size ** 2)
+        elif self.image_size == 256:
+          self.feature_size = image_size // 32
+          self.feature_volume = kernel_num * (self.feature_size ** 2)
 
         # q
         self.q_mean = self._linear(self.feature_volume, z_size, relu=False)
@@ -57,12 +62,22 @@ class VAE(nn.Module):
         self.project = self._linear(z_size, self.feature_volume, relu=False)
 
         # decoder
-        self.decoder = nn.Sequential(
-            self._deconv(kernel_num, kernel_num // 2),
-            self._deconv(kernel_num // 2, kernel_num // 4),
-            self._deconv(kernel_num // 4, channel_num),
-            nn.Sigmoid()
-        )
+        if self.image_size == 32:
+            self.decoder = nn.Sequential(
+                self._deconv(kernel_num, kernel_num // 2),
+                self._deconv(kernel_num // 2, kernel_num // 4),
+                self._last_deconv(kernel_num // 4, channel_num),  # different activation function
+                nn.Sigmoid()                            
+            )
+        elif self.image_size == 256:
+            self.decoder = nn.Sequential(
+              self._deconv(kernel_num, kernel_num // 2),
+              self._deconv(kernel_num // 2, kernel_num // 4),
+              self._deconv(kernel_num // 4, kernel_num // 8),
+              self._deconv(kernel_num // 8, kernel_num // 16),
+              self._last_deconv(kernel_num // 16, channel_num),
+              nn.Sigmoid()
+          )
 
     def forward(self, x):
         # encode x
@@ -79,22 +94,15 @@ class VAE(nn.Module):
 
         # reconstruct x from z
         x_reconstructed = self.decoder(z_projected)
-
         # return the parameters of distribution of q given x and the reconstructed image.
         return (mean, logvar), x_reconstructed
 
     # intergrate the latent dim from encoder with GANs model
-    def get_latent(self, x):
-        
-        encoded = self.encoder(x)
-        mean, logvar = self.q(encoded)
-        z = self.z(mean, logvar)  # z.shape = (batch_size, 128)
-        # z_projected = self.project(z).view(
-        #     -1, self.kernel_num,
-        #     self.feature_size,
-        #     self.feature_size,
-        # )
-        return z
+    # def get_latent(self, x): 
+    #     encoded = self.encoder(x)
+    #     mean, logvar = self.q(encoded)
+    #     z = self.z(mean, logvar)  # z.shape = (batch_size, 128)
+    #     return z
     
     def get_singleImg(self, x):
         self.decoder.eval()
@@ -126,12 +134,13 @@ class VAE(nn.Module):
             # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
             # loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
             # print('loss', loss)
-            # loss = F.mse_loss(x_reconstructed, x)
+            # loss = nn.MSELoss()(x_reconstructed, x) / x.size(0)
 
         return loss
 
     def kl_divergence_loss(self, mean, logvar):
-        kld_loss_new = torch.mean(-0.5 * torch.sum(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
+        # kld_loss_new = torch.mean(-0.5 * torch.sum(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
+        kld_loss_new = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp()) / mean.size(0)
         # kl_original = ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
 
         # print('k1_loss', kld_loss_new)
@@ -164,6 +173,16 @@ class VAE(nn.Module):
             nn.BatchNorm2d(kernel_num),
             nn.ReLU(),
         )
+    
+    # no activation for the last layer
+    def _last_conv(self, channel_size, kernel_num):
+        return nn.Sequential(
+        nn.Conv2d(
+            channel_size, kernel_num,
+            kernel_size=4, stride=2, padding=1,
+        ),
+        nn.BatchNorm2d(kernel_num),
+    )
 
     def _deconv(self, channel_num, kernel_num):
         return nn.Sequential(
@@ -173,6 +192,15 @@ class VAE(nn.Module):
             ),
             nn.BatchNorm2d(kernel_num),
             nn.ReLU(),
+        )
+    
+    def _last_deconv(self, channel_num, kernel_num):
+       return nn.Sequential(
+            nn.ConvTranspose2d(
+                channel_num, kernel_num,
+                kernel_size=4, stride=2, padding=1,
+            ),
+            nn.BatchNorm2d(kernel_num),
         )
 
     def _linear(self, in_size, out_size, relu=True):

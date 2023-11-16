@@ -19,15 +19,17 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib
 from more_itertools import flatten
 import itertools
-from PIL import Image
 from collections import Counter
 from pytorch_lightning import LightningModule, Trainer
 import torch.nn as nn
+import PIL
+from torchvision.transforms import InterpolationMode
+from torch.nn import functional as F
 # from memory_profiler import profile
 # import sys 
 
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation, DenoisingModel
 from VAE_folder.VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
 from GANs_folder.GANs_model import Discriminator, Generator, gans_trainer, weights_init 
@@ -44,6 +46,7 @@ if __name__ == '__main__':
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
   parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
   parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
+  parser.add_argument('--norm', action='store_true', help='Normalize the dataset')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
   parser.add_argument('--pretrained_flag', action='store_true', help='Use pretrained model')
@@ -56,6 +59,12 @@ if __name__ == '__main__':
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
+
+
+  parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
+  parser.add_argument('--residual_connection_method', type=str, default=None, choices=("sum", "mean"), help='Residual connection method')
+  parser.add_argument('--denoise_flag', action='store_true', help='Use denoise model')
+  parser.add_argument('--denoise_model', type=str, default=None, help='Denoise model')
 
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
   parser.add_argument('--vae_trainEpochs', type=int, default=10, help='Number of epochs to train vae')
@@ -81,28 +90,37 @@ if __name__ == '__main__':
   ###########################
   classes_num = model_numClasses(args.dataset)
   if args.pretrained_flag:
-    print('pretrained model')
-    resnet = resnet18(pretrained=True)
+    print('using pretrained resnet')
+    # resnet = resnet18(pretrained=True)
+    resnet = resnet18(weights='DEFAULT')
     resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
   else:
-    print('non-pretrained')
+    print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
-  # adjust the kernel size and stride for diffierent dataset
+  
+  ############################
+  ## dataset loader
+  ###########################
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
-    mean = (0.5,)
-    std = (0.5, 0.5, 0.5) 
-    transforms_smallSize = transforms.Compose([
-      # transforms.Resize((32, 32), interpolation=Image.BICUBIC),
+    mean = (0.4914, 0.4822, 0.4465)
+    std = (0.2023, 0.1994, 0.2010)
+    if args.norm:
+      transforms_smallSize = transforms.Compose([
+      transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
       transforms.transforms.ToTensor(),
-      # transforms.Normalize(mean, mean),
-      ])
+      transforms.Normalize(mean, std),])
+    else:
+      transforms_smallSize = transforms.Compose([
+        transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
+        transforms.transforms.ToTensor(),
+        ])
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
   else:
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     transforms_largSize= transforms.Compose([
-    transforms.Resize((256, 256), interpolation=Image.BICUBIC),
+    transforms.Resize((256, 256),interpolation=InterpolationMode.BICUBIC),
     transforms.transforms.ToTensor(),
     transforms.Normalize(mean, std),])
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
@@ -138,7 +156,7 @@ if __name__ == '__main__':
   ###########################
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   if args.augmentation_type == "simple":
-    print('using ' + str(args.simpleAugmentation_name)+ ' augmentation')
+    print('using ' + str(args.simpleAugmentation_name) + ' augmentation')
     simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentation_name)
     augmentationType = args.augmentation_type
     augmentationTransforms = simpleAugmentation_method
@@ -229,8 +247,22 @@ if __name__ == '__main__':
   if args.random_candidateSelection:
     print('randomly select candidates in this run')
 
+  if args.denoise_flag:
+    print('using denoise model, starts to train the denoise model')
+    train_denoiseModel = DenoisingModel()
+    denoiser_optimizer = torch.optim.Adam(train_denoiseModel.parameters(), lr=0.001)
+    for num in range(args.run_epoch):
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders):
+        denoiser_optimizer.zero_grad()
+        denoised_img = train_denoiseModel(img_tensor)
+        denoiser_loss = F.mse_loss(denoised_img, img_tensor, reduction='none')
+        denoiser_loss.backward()
+        denoiser_optimizer.step()
+        
+
   ############################
-  model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
+  if args.pretrained_flag:
+    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs+20), start_epoch=(args.candidate_start_epoch+20),
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
@@ -238,5 +270,21 @@ if __name__ == '__main__':
                                   k_epoch_sampleSelection=args.k_epoch_sampleSelection,
                                   augmente_epochs_list=args.augmente_epochs_list,
                                   random_candidateSelection=args.random_candidateSelection, 
+                                  residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
+                                  denoise_flag=args.denoise_flag, denoise_model=args.denoise_model,
+
                                 )
+  else:
+    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
+                                    model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
+                                    augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
+                                    augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
+                                    lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
+                                    k_epoch_sampleSelection=args.k_epoch_sampleSelection,
+                                    augmente_epochs_list=args.augmente_epochs_list,
+                                    random_candidateSelection=args.random_candidateSelection, 
+                                    residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
+                                    denoise_flag=args.denoise_flag, denoise_model=args.denoise_model,
+                                  )
+  
   model_trainer.train()

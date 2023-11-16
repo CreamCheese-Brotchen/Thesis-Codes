@@ -35,13 +35,15 @@ import random
 
 class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, 
-               loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
-               augmentation_type=None, augmentation_transforms=None, 
-               augmentation_model=None, model_transforms=None, 
-               lr=0.001, l2=0, batch_size=64, accumulation_steps=2, 
-               k_epoch_sampleSelection=3,
-               random_candidateSelection=None,
-               augmente_epochs_list=None):
+              loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
+              augmentation_type=None, augmentation_transforms=None, 
+              augmentation_model=None, model_transforms=None, 
+              lr=0.001, l2=0, batch_size=64, accumulation_steps=2, 
+              k_epoch_sampleSelection=3,
+              random_candidateSelection=None,
+              augmente_epochs_list=None,
+              residual_connection_flag=False, residual_connection_method=None,
+              denoise_flag=False, denoise_model=None):
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -53,10 +55,17 @@ class Resnet_trainer():
     self.individual_loss_fn = individual_loss_fn
     self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
+
     self.augmentation_type = augmentation_type
     self.augmentation_transforms = augmentation_transforms
     self.augmentation_model = augmentation_model
     self.model_transforms = model_transforms
+
+    self.residual_connection_flag=residual_connection_flag
+    self.residual_connection_method=residual_connection_method
+    self.denoise_flag = denoise_flag
+    self.denoise_model = denoise_model
+
     self.batch_size = batch_size
     self.num_classes = num_classes
     self.accumulation_steps  = accumulation_steps # gradient accumulation steps
@@ -64,6 +73,7 @@ class Resnet_trainer():
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
     self.random_candidateSelection = random_candidateSelection
      
+
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, 
                            history_entropy_candidates, history_num_candidates, history_meanLoss_candidates,
@@ -160,9 +170,11 @@ class Resnet_trainer():
         model = self.augmentation_model,
         model_transforms = self.model_transforms,
         tensorboard_epoch = [],  # NEW
-        tf_writer = []
+        tf_writer = [],
         )
-    
+    # print('self.residual_connection_flag', self.residual_connection_flag)
+    # print('self.residual_connection_method', self.residual_connection_method, 'type', type(self.residual_connection_method))
+
     train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
 
     # tensorboard
@@ -258,6 +270,9 @@ class Resnet_trainer():
             augmented_dataset.target_idx_list = list(augmemtation_id)
             augmented_dataset.tensorboard_epoch = epoch+1
             augmented_dataset.tf_writer = writer
+            augmented_dataset.residual_connection_flag=self.residual_connection_flag
+            augmented_dataset.residual_connection_method=self.residual_connection_method,
+            # denoise_flag=self.denoise_flag, denoise_model=self.denoise_model,
             print(f"did augmentation at {epoch+1} epoch")
         #   else:
         #     print(f"no augmentation at {epoch} epoch")
