@@ -11,7 +11,7 @@ import torchvision
 from torch import nn
 import argparse
 # from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
-# from dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+# # from VAE_folder.vae_dataset_loader import IndexDataset, create_dataloaders, model_numClasses
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
@@ -130,17 +130,17 @@ class VAE(nn.Module):
             loss = self.loss_func(x_reconstructed, x)
         else:
             # print('using default loss function for vae')
-            loss = nn.BCELoss(size_average=False)(x_reconstructed, x) / x.size(0)
+            # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) 
+            loss = F.binary_cross_entropy(x_reconstructed, x, reduction='mean')
             # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
             # loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
-            # print('loss', loss)
             # loss = nn.MSELoss()(x_reconstructed, x) / x.size(0)
 
         return loss
 
     def kl_divergence_loss(self, mean, logvar):
-        # kld_loss_new = torch.mean(-0.5 * torch.sum(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
-        kld_loss_new = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp()) / mean.size(0)
+        # kld_loss_new = torch.mean(-0.5 * torch.su m(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
+        kld_loss_new = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp()) 
         # kl_original = ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
 
         # print('k1_loss', kld_loss_new)
@@ -280,47 +280,47 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
 
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Resnet Training script')
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='Resnet Training script')
 
-    parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-    parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
-    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
-    parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
-    parser.add_argument('--tensorboard_comment', type=str, default='vae test_run', help='Comment to append to tensorboard logs')
-    parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
-    parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
-    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay")
-    parser.add_argument("--loss_func", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
-    args = parser.parse_args()
-    print(f"Script Arguments: {args}", flush=True)
+#     parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
+#     parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
+#     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training (default: 64)')
+#     parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
+#     parser.add_argument('--tensorboard_comment', type=str, default='vae test_run', help='Comment to append to tensorboard logs')
+#     parser.add_argument("--kernel_num", type=int, default=128, help="Number of kernels in the first layer of the VAE")
+#     parser.add_argument("--z_size", type=int, default=128, help="Size of the latent vector")
+#     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
+#     parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay")
+#     parser.add_argument("--loss_func", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
+#     args = parser.parse_args()
+#     print(f"Script Arguments: {args}", flush=True)
 
-    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
-        transformSize = transforms.Compose([
-            transforms.transforms.ToTensor(),
-        ])
-    elif args.dataset in ['Flowers102', 'Food101']:
-        transformsSize = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.transforms.ToTensor(),
-        ])
-    dataset_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    num_channel = dataset_loader['train'].dataset[0][0].shape[0]
-    image_size = dataset_loader['train'].dataset[0][0].shape[1]
-    vae = VAE(
-        image_size=image_size,
-        channel_num=num_channel,
-        kernel_num=args.kernel_num,
-        z_size=args.z_size,
-        loss_func=args.loss_func,
-    )
-    train_model(vae, dataset_loader,
-            epochs=args.run_epochs,
-            lr=args.lr,
-            weight_decay=args.weight_decay,
-            tensorboard_comment = args.tensorboard_comment,
-            )
+#     if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+#         transformSize = transforms.Compose([
+#             transforms.transforms.ToTensor(),
+#         ])
+#     elif args.dataset in ['Flowers102', 'Food101']:
+#         transformsSize = transforms.Compose([
+#             transforms.Resize((256, 256)),
+#             transforms.transforms.ToTensor(),
+#         ])
+#     data_loader = create_dataloaders(transformSize, transformSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
+#     num_channel = data_loader['train'].dataset[0][0].shape[0]
+#     image_size = data_loader['train'].dataset[0][0].shape[1]
+#     vae = VAE(
+#         image_size=image_size,
+#         channel_num=num_channel,
+#         kernel_num=args.kernel_num,
+#         z_size=args.z_size,
+#         loss_func=args.loss_func,
+#     )
+#     train_model(vae, data_loader,
+#             epochs=args.run_epochs,
+#             lr=args.lr,
+#             weight_decay=args.weight_decay,
+#             tensorboard_comment = args.tensorboard_comment,
+#             )
     
     # ##############################
     # ## GANs
