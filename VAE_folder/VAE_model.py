@@ -67,7 +67,7 @@ class VAE(nn.Module):
                 self._deconv(kernel_num, kernel_num // 2),
                 self._deconv(kernel_num // 2, kernel_num // 4),
                 self._last_deconv(kernel_num // 4, channel_num),  # different activation function
-                nn.Sigmoid()                            
+                # nn.Sigmoid()                            
             )
         elif self.image_size == 256:
             self.decoder = nn.Sequential(
@@ -76,7 +76,7 @@ class VAE(nn.Module):
               self._deconv(kernel_num // 4, kernel_num // 8),
               self._deconv(kernel_num // 8, kernel_num // 16),
               self._last_deconv(kernel_num // 16, channel_num),
-              nn.Sigmoid()
+            #   nn.Sigmoid()
           )
 
     def forward(self, x):
@@ -131,10 +131,10 @@ class VAE(nn.Module):
         else:
             # print('using default loss function for vae')
             # loss = nn.BCELoss(size_average=False)(x_reconstructed, x) 
-            loss = F.binary_cross_entropy(x_reconstructed, x, reduction='mean')
+            # loss = F.binary_cross_entropy(x_reconstructed, x, reduction='mean') 
             # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
             # loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
-            # loss = nn.MSELoss()(x_reconstructed, x) / x.size(0)
+            loss = nn.MSELoss()(x_reconstructed, x) / x.size(0)
 
         return loss
 
@@ -200,7 +200,8 @@ class VAE(nn.Module):
                 channel_num, kernel_num,
                 kernel_size=4, stride=2, padding=1,
             ),
-            nn.BatchNorm2d(kernel_num),
+            # nn.BatchNorm2d(kernel_num),
+            nn.ReLU(),
         )
 
     def _linear(self, in_size, out_size, relu=True):
