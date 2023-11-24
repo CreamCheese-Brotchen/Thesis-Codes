@@ -155,7 +155,7 @@ class gans_trainer():
 
         real_label = 1.
         fake_label = 0.
-
+    
         writer = SummaryWriter(comment=self.tensorboard_comment)
         
         for epoch in range(self.num_epochs):
