@@ -195,7 +195,8 @@ class Resnet_trainer():
       history_meanLoss_candidates = list()
 
       self.model.train()  
-      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
         output_logits = self.model(img_tensor)
