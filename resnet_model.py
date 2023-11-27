@@ -161,6 +161,7 @@ class Resnet_trainer():
     avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
     accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
 
+
     # define the training dataset
     augmented_dataset = AugmentedDataset(
         dataset = self.dataloader['train'].dataset,
@@ -195,8 +196,9 @@ class Resnet_trainer():
       history_meanLoss_candidates = list()
 
       self.model.train()  
-      # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
-      for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+        self.optimizer.zero_grad()
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
         output_logits = self.model(img_tensor)
@@ -204,24 +206,25 @@ class Resnet_trainer():
         loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
         # update the loss&accuracy during training
-        avg_loss_metric_train.update(loss_val)
+        avg_loss_metric_train.update(loss_val.item())
         accuracy_metric_train.update(output_logits, label_tensor)
         # update the entropy of samples cross iterations
         entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
         id_list.append(id)                                                  # record the id order of samples at this iter
         all_individualLoss_list.append(loss_individual)
 
+        self.optimizer.zero_grad()
         if self.accumulation_steps:
           loss_val = loss_val / self.accumulation_steps
           loss_val.backward()
           if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
               # print('performing gradient update')
               self.optimizer.step()
-              self.optimizer.zero_grad()
+              # self.optimizer.zero_grad()
         else:
           loss_val.backward()
           self.optimizer.step()
-          self.optimizer.zero_grad()
+          # self.optimizer.zero_grad()
 
       # End of iteration -- running over once all data in the dataloader
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
@@ -282,29 +285,37 @@ class Resnet_trainer():
 
 
       self.model.eval()
-      for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
-        img_tensor = img_tensor.to(device)
-        label_tensor = label_tensor.to(device)
-        test_output_logits = self.model(img_tensor)
-        loss_val = self.loss_fn(test_output_logits, label_tensor)
-        avg_loss_metric_test.update(loss_val)
-        accuracy_metric_test.update(test_output_logits, label_tensor)
+      with torch.no_grad():
+        for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
+          img_tensor = img_tensor.to(device)
+          label_tensor = label_tensor.to(device)
+          test_output_logits = self.model(img_tensor)
+          loss_val = self.loss_fn(test_output_logits, label_tensor)
+          avg_loss_metric_test.update(loss_val.item())
+          accuracy_metric_test.update(test_output_logits, label_tensor)
         # print((output_logits.argmax(dim=-1) == label_tensor).sum()) was test to ensure that accuracy calc is accurate
 
 
-      train_loss.append(avg_loss_metric_train.compute().cpu().numpy()) # save the loss of each epoch
-    #   print('memory avg_loss_metric_Ptrain', sys.getsizeof(avg_loss_metric_train), "at epoch ", epoch+1)
-      test_loss.append(avg_loss_metric_test.compute().cpu().numpy())
-      train_accuracy.append(accuracy_metric_train.compute().cpu().numpy())
-      # print('len(train accuracy) per epoch ', len(train_accuracy), train_accuracy[-1])
-      test_accuracy.append(accuracy_metric_test.compute().cpu().numpy())
+      average_loss_train_epoch = avg_loss_metric_train.compute().cpu().numpy()
+      average_loss_test_epoch = avg_loss_metric_test.compute().cpu().numpy()
+      average_accuracy_train_epoch = accuracy_metric_train.compute().cpu().numpy()
+      average_accuracy_test_epoch = accuracy_metric_test.compute().cpu().numpy()
+
+    #   train_loss.append(avg_loss_metric_train.compute().cpu().numpy()) # save the loss of each epoch
+    # #   print('memory avg_loss_metric_Ptrain', sys.getsizeof(avg_loss_metric_train), "at epoch ", epoch+1)
+    #   test_loss.append(avg_loss_metric_test.compute().cpu().numpy())
+    #   train_accuracy.append(accuracy_metric_train.compute().cpu().numpy())
+    #   # print('len(train accuracy) per epoch ', len(train_accuracy), train_accuracy[-1])
+    #   test_accuracy.append(accuracy_metric_test.compute().cpu().numpy())
       print('Epoch[{}/{}]: loss_train={:.4f}, loss_test={:.4f},  accuracy_train={:.3f}, accuracy_test={:.3f}'.format(epoch+1, self.run_epochs,
-                                                                                                                    train_loss[-1], test_loss[-1],
-                                                                                                                    train_accuracy[-1], test_accuracy[-1]), flush=True)
-      writer.add_scalar('Loss/train',train_loss[-1], epoch+1)
-      writer.add_scalar('Loss/test', test_loss[-1], epoch+1)
-      writer.add_scalar('Accuracy/train', train_accuracy[-1], epoch+1)
-      writer.add_scalar('Accuracy/test', test_accuracy[-1], epoch+1)
+                                                                                                                    # train_loss[-1], test_loss[-1], train_accuracy[-1], test_accuracy[-1],
+                                                                                                                    average_loss_train_epoch, average_loss_test_epoch, 
+                                                                                                                    average_accuracy_train_epoch, average_accuracy_test_epoch,
+                                                                                                                    ), flush=True)
+      writer.add_scalar('Loss/train',average_loss_train_epoch, epoch+1)           # train_loss[-1]
+      writer.add_scalar('Loss/test', average_loss_test_epoch, epoch+1)            # test_loss[-1]
+      writer.add_scalar('Accuracy/train',average_accuracy_train_epoch, epoch+1)  # train_accuracy[-1]
+      writer.add_scalar('Accuracy/test', average_accuracy_test_epoch, epoch+1)    # test_accuracy[-1]
     
       avg_loss_metric_train.reset()
       accuracy_metric_train.reset()
