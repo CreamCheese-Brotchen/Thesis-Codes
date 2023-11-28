@@ -45,7 +45,7 @@ if __name__ == '__main__':
   parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
   parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
-  parser.add_argument('--l2', type=float, default=1e-4, help='L2 regularization')
+  parser.add_argument('--l2', type=float, default=1e-5, help='L2 regularization')
   parser.add_argument('--norm', action='store_true', help='Normalize the dataset')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
@@ -68,8 +68,8 @@ if __name__ == '__main__':
 
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
   parser.add_argument('--vae_trainEpochs', type=int, default=10, help='Number of epochs to train vae')
-  parser.add_argument('--vae_kernelNum', type=int, default=128, help='Number of kernels in the first layer of the VAE')
-  parser.add_argument("--vae_zSize", type=int, default=128, help="Size of the latent vector")
+  parser.add_argument('--vae_kernelNum', type=int, default=256, help='Number of kernels in the first layer of the VAE')
+  parser.add_argument("--vae_zSize", type=int, default=2048, help="Size of the latent vector")
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
   parser.add_argument("--vae_weightDecay", type=float, default=0.1, help="VAE Weight decay")
   parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 

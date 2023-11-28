@@ -218,7 +218,6 @@ class Resnet_trainer():
           loss_val = loss_val / self.accumulation_steps
           loss_val.backward()
           if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
-              # print('performing gradient update')
               self.optimizer.step()
               # self.optimizer.zero_grad()
         else:
@@ -301,14 +300,7 @@ class Resnet_trainer():
       average_accuracy_train_epoch = accuracy_metric_train.compute().cpu().numpy()
       average_accuracy_test_epoch = accuracy_metric_test.compute().cpu().numpy()
 
-    #   train_loss.append(avg_loss_metric_train.compute().cpu().numpy()) # save the loss of each epoch
-    # #   print('memory avg_loss_metric_Ptrain', sys.getsizeof(avg_loss_metric_train), "at epoch ", epoch+1)
-    #   test_loss.append(avg_loss_metric_test.compute().cpu().numpy())
-    #   train_accuracy.append(accuracy_metric_train.compute().cpu().numpy())
-    #   # print('len(train accuracy) per epoch ', len(train_accuracy), train_accuracy[-1])
-    #   test_accuracy.append(accuracy_metric_test.compute().cpu().numpy())
       print('Epoch[{}/{}]: loss_train={:.4f}, loss_test={:.4f},  accuracy_train={:.3f}, accuracy_test={:.3f}'.format(epoch+1, self.run_epochs,
-                                                                                                                    # train_loss[-1], test_loss[-1], train_accuracy[-1], test_accuracy[-1],
                                                                                                                     average_loss_train_epoch, average_loss_test_epoch, 
                                                                                                                     average_accuracy_train_epoch, average_accuracy_test_epoch,
                                                                                                                     ), flush=True)

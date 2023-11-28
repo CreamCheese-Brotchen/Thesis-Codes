@@ -35,7 +35,7 @@ class VAE(nn.Module):
           self.encoder = nn.Sequential(
               self._conv(channel_num, kernel_num // 4),
               self._conv(kernel_num // 4, kernel_num // 2),
-              self._conv(kernel_num // 2, kernel_num),
+              self._last_conv(kernel_num // 2, kernel_num),
           )
         elif self.image_size == 256:
           self.encoder = nn.Sequential(
@@ -43,7 +43,7 @@ class VAE(nn.Module):
             self._conv(kernel_num // 16, kernel_num // 8),
             self._conv(kernel_num // 8, kernel_num // 4),
             self._conv(kernel_num // 4, kernel_num // 2),
-            self._conv(kernel_num // 2, kernel_num)
+            self._last_conv(kernel_num // 2, kernel_num)
             )
           
         # encoded feature's size and volume
@@ -202,7 +202,7 @@ class VAE(nn.Module):
                 kernel_size=4, stride=2, padding=1,
             ),
             # nn.BatchNorm2d(kernel_num),
-            nn.ReLU(),
+            nn.Sigmoid(),
         )
 
     def _linear(self, in_size, out_size, relu=True):

@@ -47,8 +47,10 @@ class AugmentedDataset(Dataset):
               # print('type(self.residual_connection_method)', type(self.residual_connection_method))
               if self.residual_connection_method[0] == 'sum':
                 data = data + original_data
+                data = torch.clip(data, 0, 1)
               elif self.residual_connection_method[0] == 'mean':
-                data = (data + original_data) / 2
+                data = torch.add(data, original_data)/2
+                data = torch.clip(data, 0, 1)
 
             if self.denoise_flag:
               denoiser_data = self.denoise_model(original_data.unsqueeze(0))
