@@ -96,14 +96,8 @@ class VAE(nn.Module):
         x_reconstructed = self.decoder(z_projected)
         # return the parameters of distribution of q given x and the reconstructed image.
         return (mean, logvar), x_reconstructed
-
-    # intergrate the latent dim from encoder with GANs model
-    # def get_latent(self, x): 
-    #     encoded = self.encoder(x)
-    #     mean, logvar = self.q(encoded)
-    #     z = self.z(mean, logvar)  # z.shape = (batch_size, 128)
-    #     return z
     
+
     def get_singleImg(self, x):
         self.decoder.eval()
         self.encoder.eval()
@@ -143,9 +137,6 @@ class VAE(nn.Module):
         # kld_loss_new = torch.mean(-0.5 * torch.su m(1 + logvar - mean ** 2 - logvar.exp(), dim = 1), dim = 0)
         kld_loss_new = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp()) 
         # kl_original = ((mean**2 + logvar.exp() - 1 - logvar) / 2).mean()
-
-        # print('k1_loss', kld_loss_new)
-        # print('kl_original', kl_original)
         return kld_loss_new
 
 

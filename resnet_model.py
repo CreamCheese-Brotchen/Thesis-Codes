@@ -38,9 +38,9 @@ class Resnet_trainer():
               loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
               augmentation_type=None, augmentation_transforms=None, 
               augmentation_model=None, model_transforms=None, 
-              lr=0.001, l2=0, batch_size=64, accumulation_steps=2, 
+              lr=0.0001, l2=0, batch_size=64, accumulation_steps=2, 
               k_epoch_sampleSelection=3,
-              random_candidateSelection=None,
+              random_candidateSelection=False,
               augmente_epochs_list=None,
               residual_connection_flag=False, residual_connection_method=None,
               denoise_flag=False, denoise_model=None):
@@ -76,7 +76,7 @@ class Resnet_trainer():
 
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, 
-                           history_entropy_candidates, history_num_candidates, history_meanLoss_candidates,
+                          #  history_entropy_candidates, history_num_candidates, history_meanLoss_candidates,
                            randomCandidate_selection=False):
     """Input current id/entropy/loss of all samples, output the selected candidates with entropy > threshold, and update the history of candidates
     Args:
@@ -89,7 +89,7 @@ class Resnet_trainer():
         history_meanLoss_candidates (list):  history of candidates mean loss collected across epochs
 
     Returns:
-        _type_: update the history of candidates: id, entropy, number, mean loss, which are collected across  epochs
+        _type_: update the history of candidates: id, entropy, number, mean loss, which are collected across epochs
     """
     idList_allSamples = list(flatten(current_allId_list))
     entropy_allSamples = list(flatten(current_allEnt_list))   # flattened, a tensor list of entropy of candidates over batchs
@@ -99,6 +99,7 @@ class Resnet_trainer():
       np.random.shuffle(combined_info)
       random_candidateNum = int(np.random.randint(0.15*len(idList_allSamples), 0.75*len(idList_allSamples)))  # num random_candidates
       select_Candidates = combined_info[:random_candidateNum]
+      print(f"randomly select {random_candidateNum} candidates at this epoch")
     else:
       select_Candidates = [(idx,ent,loss) for (idx,ent,loss) in zip(idList_allSamples,entropy_allSamples,loss_allSamples) if ent >= self.entropy_threshold]     
 
@@ -109,7 +110,7 @@ class Resnet_trainer():
       history_candidates_id.append(candidates_id)     # to search the past k epochs for searching more stubborn candidates
       # history_num_candidates.append(len(candidates_id))
       # currentEpoch_entroyCandidates = candidates_entropy
-    #   history_entropy_candidates.append(candidates_entropy)
+      # history_entropy_candidates.append(candidates_entropy)
       candidates_loss_cpu = [loss.cpu().detach().numpy() for loss in candidates_loss]
       currentEpoch_lossCandidate = np.mean(candidates_loss_cpu)
     else:
@@ -133,7 +134,7 @@ class Resnet_trainer():
       previousEpoch_selection = k
     for i in range(previousEpoch_selection):
       list_name = f"list_{i}"
-      lists_dict[list_name] = set(history_candidates_id[-(i+1)])
+      lists_dict[list_name] = set(history_candidates_id[-(i+1)])  # finding unique elements in the list
 
     common_id = None
     for j in range(len(lists_dict)):
@@ -182,6 +183,12 @@ class Resnet_trainer():
     writer = SummaryWriter(comment=self.tensorboard_comment)
     print(f"Starting Training Run. Using device: {device}", flush=True)
 
+    history_candidates_id = list()
+    history_num_candidates = list()
+    history_entropy_candidates = list()
+    history_accuracy_candidates = list()
+    history_meanLoss_candidates = list()
+
     for epoch in range(self.run_epochs):
 
       id_list = list()                  # id of all samples at each epoch, cleaned when the new epoch starts
@@ -189,11 +196,11 @@ class Resnet_trainer():
       all_individualLoss_list = list()  # loss of all samples at each epoch
       
       # history id/num/entropy of candidates(hard samples)
-      history_candidates_id = list()
-      history_num_candidates = list()
-      history_entropy_candidates = list()
-      history_accuracy_candidates = list()
-      history_meanLoss_candidates = list()
+      # history_candidates_id = list()
+      # history_num_candidates = list()
+      # history_entropy_candidates = list()
+      # history_accuracy_candidates = list()
+      # history_meanLoss_candidates = list()
 
       self.model.train()  
       for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
@@ -202,14 +209,16 @@ class Resnet_trainer():
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
         output_logits = self.model(img_tensor)
-        loss_val = self.loss_fn(output_logits, label_tensor)
-        loss_individual = self.individual_loss_fn(output_logits, label_tensor)
+        
+        output_probs = torch.nn.Softmax(dim=1)(output_logits)
+        loss_val = self.loss_fn(output_probs, label_tensor)
+        loss_individual = self.individual_loss_fn(output_probs, label_tensor)
 
         # update the loss&accuracy during training
         avg_loss_metric_train.update(loss_val.item())
-        accuracy_metric_train.update(output_logits, label_tensor)
+        accuracy_metric_train.update(output_probs, label_tensor)
         # update the entropy of samples cross iterations
-        entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
+        entropy_list.append(Categorical(logits=output_probs).entropy())    # calculate the entropy of samples at this iter
         id_list.append(id)                                                  # record the id order of samples at this iter
         all_individualLoss_list.append(loss_individual)
 
@@ -232,10 +241,8 @@ class Resnet_trainer():
       # start to collect the hard samples infos at the first epoch
       # history_candidates_id, history_entropy_candidates, candidates_id                                                                                          # current_allId_list, current_allEnt_list, current_allLoss_list
       history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
-                                                                                              # history_candidates_id, history_entropy_candidates
-                                                                                                history_candidates_id=history_candidates_id, history_entropy_candidates=history_entropy_candidates,
-                                                                                              # history_num_candidates, history_meanLoss_candidates
-                                                                                                history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
+                                                                                                history_candidates_id=history_candidates_id, 
+                                                                                                # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
                                                                                                 randomCandidate_selection=self.random_candidateSelection)
       # but only start to add them to the tensorboard at the start_epoch
       # if epoch >= self.start_epoch:
@@ -277,8 +284,14 @@ class Resnet_trainer():
             augmented_dataset.residual_connection_method=self.residual_connection_method,
             # denoise_flag=self.denoise_flag, denoise_model=self.denoise_model,
             print(f"did augmentation at {epoch+1} epoch")
-        #   else:
-        #     print(f"no augmentation at {epoch} epoch")
+        #   
+          # to visualize the common id candidates' performance
+            search_ids = list(augmemtation_id)
+            print(type(search_ids))
+            common_id_indices = torch.hstack([torch.where(currentEpoch_candidateId == id_search)[0] for id_search in search_ids])
+            common_id_loss = currentEpoch_lossCandidate[common_id_indices]
+            print(f"common_id_loss mean {torch.mean(common_id_loss)}")
+            writer.add_scalar('Mean loss of k_epoch common hard samples', torch.mean(common_id_loss), epoch+1)
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
@@ -289,16 +302,16 @@ class Resnet_trainer():
           img_tensor = img_tensor.to(device)
           label_tensor = label_tensor.to(device)
           test_output_logits = self.model(img_tensor)
-          loss_val = self.loss_fn(test_output_logits, label_tensor)
+          test_output_probs = torch.nn.Softmax(dim=1)(test_output_logits)
+          loss_val = self.loss_fn(test_output_probs, label_tensor)
           avg_loss_metric_test.update(loss_val.item())
-          accuracy_metric_test.update(test_output_logits, label_tensor)
-        # print((output_logits.argmax(dim=-1) == label_tensor).sum()) was test to ensure that accuracy calc is accurate
+          accuracy_metric_test.update(test_output_probs, label_tensor)
 
 
       average_loss_train_epoch = avg_loss_metric_train.compute().cpu().numpy()
       average_loss_test_epoch = avg_loss_metric_test.compute().cpu().numpy()
-      average_accuracy_train_epoch = accuracy_metric_train.compute().cpu().numpy()
-      average_accuracy_test_epoch = accuracy_metric_test.compute().cpu().numpy()
+      average_accuracy_train_epoch = accuracy_metric_train.compute().item()
+      average_accuracy_test_epoch = accuracy_metric_test.compute().item()
 
       print('Epoch[{}/{}]: loss_train={:.4f}, loss_test={:.4f},  accuracy_train={:.3f}, accuracy_test={:.3f}'.format(epoch+1, self.run_epochs,
                                                                                                                     average_loss_train_epoch, average_loss_test_epoch, 
