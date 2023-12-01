@@ -218,7 +218,7 @@ class Resnet_trainer():
         avg_loss_metric_train.update(loss_val.item())
         accuracy_metric_train.update(output_probs, label_tensor)
         # update the entropy of samples cross iterations
-        entropy_list.append(Categorical(logits=output_probs).entropy())    # calculate the entropy of samples at this iter
+        entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
         id_list.append(id)                                                  # record the id order of samples at this iter
         all_individualLoss_list.append(loss_individual)
 
