@@ -112,7 +112,7 @@ class Resnet_trainer():
       # currentEpoch_entroyCandidates = candidates_entropy
       # history_entropy_candidates.append(candidates_entropy)
       candidates_loss_cpu = [loss.cpu().detach().numpy() for loss in candidates_loss]
-      currentEpoch_lossCandidate = np.mean(candidates_loss_cpu)
+      currentEpoch_lossCandidate = candidates_loss_cpu  #np.mean(candidates_loss_cpu)
     else:
       candidates_id = []
     #   print('No candidates at this epoch')
@@ -128,10 +128,8 @@ class Resnet_trainer():
 
   def commonId_k_epochSelection(self, history_candidates_id, k):
     lists_dict = {}
-    if len(history_candidates_id) < k:
-      previousEpoch_selection = len(history_candidates_id)
-    else:
-      previousEpoch_selection = k
+    previousEpoch_selection = min(len(history_candidates_id), k)
+
     for i in range(previousEpoch_selection):
       list_name = f"list_{i}"
       lists_dict[list_name] = set(history_candidates_id[-(i+1)])  # finding unique elements in the list
@@ -239,7 +237,7 @@ class Resnet_trainer():
       # writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
       # start to collect the hard samples infos at the first epoch
-      # history_candidates_id, history_entropy_candidates, candidates_id                                                                                          # current_allId_list, current_allEnt_list, current_allLoss_list
+      # history_candidates_id: storage all history candidates id cross epochs          //  if self.random_candidateSelection true, currentEpoch_candidateId are randomly choosed                                                              
       history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
                                                                                                 history_candidates_id=history_candidates_id, 
                                                                                                 # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
@@ -248,7 +246,7 @@ class Resnet_trainer():
       # if epoch >= self.start_epoch:
         # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
       writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
-      writer.add_scalar('Mean loss of hard samples', currentEpoch_lossCandidate, epoch+1)
+      writer.add_scalar('Mean loss of hard samples', np.mean(currentEpoch_lossCandidate), epoch+1)
       
       # if augmente
       if self.augmentation_type:
@@ -262,8 +260,10 @@ class Resnet_trainer():
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
             if self.random_candidateSelection:
               augmemtation_id = currentEpoch_candidateId
+            # choose the hard samples according to the cross-entropy 
             else:
-              if self.k_epoch_sampleSelection:
+              if self.k_epoch_sampleSelection != 0:  # if you choose to use hard samples over previous k epochs, or use the lastest epoch's hard samples (self.k_epoch_sampleSelection=0)
+                print(f'use previous {self.k_epoch_sampleSelection}epoch_sampleSelection')
                 k_epoch_candidateId = self.commonId_k_epochSelection(history_candidates_id=history_candidates_id, k=self.k_epoch_sampleSelection)  # select the common candidates from the last 3 epochs
                 if len(k_epoch_candidateId) != 0:
                   augmemtation_id = k_epoch_candidateId
@@ -272,26 +272,38 @@ class Resnet_trainer():
                   augmemtation_id = currentEpoch_candidateId
                   # print(f"no common_id in the previous k epochs")
               else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
+                print('use current_epoch_sampleSelection')
                 augmemtation_id = currentEpoch_candidateId
 
-            
-            # remain the same augmented dataset for the next 10 epochs
-            augmented_dataset.augmentation_type = self.augmentation_type
-            augmented_dataset.target_idx_list = list(augmemtation_id)
-            augmented_dataset.tensorboard_epoch = epoch+1
-            augmented_dataset.tf_writer = writer
-            augmented_dataset.residual_connection_flag=self.residual_connection_flag
-            augmented_dataset.residual_connection_method=self.residual_connection_method,
-            # denoise_flag=self.denoise_flag, denoise_model=self.denoise_model,
-            print(f"did augmentation at {epoch+1} epoch")
-        #   
-          # to visualize the common id candidates' performance
-            search_ids = list(augmemtation_id)
-            print(type(search_ids))
-            common_id_indices = torch.hstack([torch.where(currentEpoch_candidateId == id_search)[0] for id_search in search_ids])
-            common_id_loss = currentEpoch_lossCandidate[common_id_indices]
-            print(f"common_id_loss mean {torch.mean(common_id_loss)}")
-            writer.add_scalar('Mean loss of k_epoch common hard samples', torch.mean(common_id_loss), epoch+1)
+            if list(augmemtation_id):
+              print(f"did augmentation at {epoch+1} epoch") 
+              # remain the same augmented dataset for the next 10 epochs
+              augmented_dataset.augmentation_type = self.augmentation_type
+              augmented_dataset.target_idx_list = list(augmemtation_id)
+              augmented_dataset.tensorboard_epoch = epoch+1
+              augmented_dataset.tf_writer = writer
+              augmented_dataset.residual_connection_flag=self.residual_connection_flag
+              augmented_dataset.residual_connection_method=self.residual_connection_method,
+              # denoise_flag=self.denoise_flag, denoise_model=self.denoise_model,
+ 
+              # to visualize the common id candidates' performance
+              if self.random_candidateSelection:
+                pass
+              else:
+                if self.k_epoch_sampleSelection != 0:
+                  search_ids = torch.tensor(list(augmemtation_id))                    # common_Id from k previous epochs
+                  searchRange_ids = torch.tensor(currentEpoch_candidateId)              # id of candidates at this epoch
+                  loss_allcandidates = np.asarray(currentEpoch_lossCandidate).tolist()  # loss of candidates at this epoch
+                  # print(search_ids)
+                  # print(searchRange_ids)
+                  # print(loss_allcandidates)
+                  common_id_indices = torch.hstack([torch.where(searchRange_ids == id_search)[0] for id_search in search_ids]).tolist()  # get the indices of common_id in the searchRange_ids
+                  common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
+                  print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
+                  writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
+            # if list(augmemtation_id) is empty, no hard samples & no augmentation
+            else:  
+              print(f'no augmentation at {epoch} epoch as there are no hard samples')
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
