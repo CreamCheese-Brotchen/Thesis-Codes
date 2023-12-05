@@ -77,7 +77,6 @@ class AugmentedDataset(Dataset):
 
           if self.augmentation_type == 'navie_denoiser':
             original_data = data
-            print('g')
             data  = self.denoise_model(data.unsqueeze(0))
             data = original_data + data.squeeze(0).detach()
             if self.tensorboard_epoch:
