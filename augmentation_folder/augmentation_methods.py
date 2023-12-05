@@ -35,6 +35,7 @@ class AugmentedDataset(Dataset):
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
 
+      
         # Apply data augmentation based on the index being in the target index list
         if idx in self.target_idx_list:
           if self.augmentation_type == 'vae':
@@ -42,33 +43,48 @@ class AugmentedDataset(Dataset):
             data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32], get the augmented img from the model
             # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
 
+            tf_imgComment = 'Resnet_Aug/Orig & vaeAug'
+
             if self.residual_connection_flag:
-              # print('residual_connection_method' + self.residual_connection_method)
-              # print('type(self.residual_connection_method)', type(self.residual_connection_method))
               if self.residual_connection_method[0] == 'sum':
                 data = data + original_data
                 data = torch.clip(data, 0, 1)
               elif self.residual_connection_method[0] == 'mean':
                 data = torch.add(data, original_data)/2
                 data = torch.clip(data, 0, 1)
+              tf_imgComment += ' & resCon_' + str(self.residual_connection_method[0])
 
             if self.denoise_flag:
-              denoiser_data = self.denoise_model(original_data.unsqueeze(0))
-              data = data + denoiser_data.squeeze(0).detach()
+              # vae-> denoiser = denoiser_data; original_data + denoiser_data = augmented_data
+              denoiser_data = self.denoise_model(data.unsqueeze(0))
+              data = original_data + denoiser_data.squeeze(0).detach()
+              tf_imgComment += ' & denoisImg'
   
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
-                self.tf_writer.add_image('Resnet_aug/original & vae augmented imgs', combined_image, self.tensorboard_epoch)
+                self.tf_writer.add_image(str(tf_imgComment), combined_image, self.tensorboard_epoch)
+
           if self.augmentation_type == 'simple':
             original_data = data
             data  = self.augmentation_transforms(data)
-            # print('aug_data.shape', data.shape)
+
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
-                writer_comment = 'Resnet_aug/original & ' + str(self.augmentation_type) + ' augmented imgs'
-                self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
+                tf_imgComment = 'Resnet_Aug/Orig & ' + str(self.augmentation_type) + 'Aug'
+                self.tf_writer.add_image(tf_imgComment, combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'navie_denoiser':
+            original_data = data
+            print('g')
+            data  = self.denoise_model(data.unsqueeze(0))
+            data = original_data + data.squeeze(0).detach()
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image('Resnet_Aug/Orig & navieDenoise', combined_image, self.tensorboard_epoch)
+
           if self.augmentation_type == 'GANs':
             original_data = data  
             data = self.augmentation_transforms(data, latent_model=self.model, augmentation_model=self.model_transforms).to(original_data.device)  # model: vae_model, model_transforms: GANs_trainer

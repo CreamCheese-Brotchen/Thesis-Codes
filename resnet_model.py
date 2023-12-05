@@ -283,8 +283,10 @@ class Resnet_trainer():
               augmented_dataset.tensorboard_epoch = epoch+1
               augmented_dataset.tf_writer = writer
               augmented_dataset.residual_connection_flag=self.residual_connection_flag
-              augmented_dataset.residual_connection_method=self.residual_connection_method,
-              # denoise_flag=self.denoise_flag, denoise_model=self.denoise_model,
+              augmented_dataset.residual_connection_method=self.residual_connection_method
+              # denoiser
+              augmented_dataset.denoise_flag=self.denoise_flag
+              augmented_dataset.denoise_model=self.denoise_model
  
               # to visualize the common id candidates' performance
               if self.random_candidateSelection:
