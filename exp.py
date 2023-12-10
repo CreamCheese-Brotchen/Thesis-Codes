@@ -53,7 +53,7 @@ if __name__ == '__main__':
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
-  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs", "navie_denoiser"), help='Augmentation type')
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs", "navie_denoiser", 'builtIn_denoiser'), help='Augmentation type')
   parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
@@ -64,6 +64,7 @@ if __name__ == '__main__':
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
   parser.add_argument('--residual_connection_method', type=str, default=None, choices=("sum", "mean"), help='Residual connection method')
   parser.add_argument('--denoise_flag', action='store_true', help='Use denoise model')
+  parser.add_argument('--in_denoiseRecons_lossFlag', action='store_true', help='Use builtIn denoise model')
   # parser.add_argument('--denoise_model', type=str, default=None, help='Denoise model')
 
   parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
@@ -220,6 +221,14 @@ if __name__ == '__main__':
     augmentationModel = None
     augmentationTrainer = None
   #############################
+  elif args.augmentation_type == 'builtIn_denoiser':
+    print('using builtIn_denoiser augmentation')
+    augmentationType = args.augmentation_type
+    # the augmentation model would be 
+    augmentationTransforms = None
+    augmentationModel = None  
+    augmentationTrainer = None
+  #############################
   elif args.augmentation_type == "GANs":
     print('using GANs augmentation')
     if not isinstance(args.GANs_latentDim, int):
@@ -304,6 +313,7 @@ if __name__ == '__main__':
                                   random_candidateSelection=args.random_candidateSelection, 
                                   residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
                                   denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
+                                  in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                 )
     print(resnet_trainedDenoiser)
   else:
@@ -317,6 +327,7 @@ if __name__ == '__main__':
                                     random_candidateSelection=args.random_candidateSelection, 
                                     residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
                                     denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
+                                    in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                   )
   
   model_trainer.train()

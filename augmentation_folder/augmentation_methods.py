@@ -17,7 +17,9 @@ class AugmentedDataset(Dataset):
                  augmentation_type, model=None, model_transforms=None,
                  tensorboard_epoch=None, tf_writer=None,
                  residual_connection_flag=False, residual_connection_method=None,
-                 denoise_flag=False, denoise_model=None):
+                 denoise_flag=False, denoise_model=None,
+                 builtIn_denoise_model=None,
+                 in_denoiseRecons_lossFlag=False):
         self.dataset = dataset
         self.target_idx_list = target_idx_list
         self.augmentation_transforms = augmentation_transforms
@@ -32,9 +34,12 @@ class AugmentedDataset(Dataset):
         self.denoise_flag = denoise_flag
         self.denoise_model = denoise_model
 
+        # built-in denoiser
+        self.builtIn_denoise_model = builtIn_denoise_model
+        self.in_denoiseRecons_lossFlag = in_denoiseRecons_lossFlag
+
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
-
       
         # Apply data augmentation based on the index being in the target index list
         if idx in self.target_idx_list:
@@ -59,7 +64,7 @@ class AugmentedDataset(Dataset):
               denoiser_data = self.denoise_model(data.unsqueeze(0))
               data = original_data + denoiser_data.squeeze(0).detach()
               tf_imgComment += ' & denoisImg'
-  
+
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
@@ -83,6 +88,17 @@ class AugmentedDataset(Dataset):
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
                 self.tf_writer.add_image('Resnet_Aug/Orig & navieDenoise', combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'builtIn_denoiser':
+            original_data = data
+            data  = self.builtIn_denoise_model.get_singleImg(data.unsqueeze(0)).squeeze(0)
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data.detach()), dim=2)
+                comment = 'Resnet_Orig/Aug & builtIn_denoiser img'
+                if self.in_denoiseRecons_lossFlag:
+                   comment+= '(totaLoss)'
+                self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
 
           if self.augmentation_type == 'GANs':
             original_data = data  
@@ -227,5 +243,8 @@ class DenoisingModel(torch.nn.Module):
         output = input + f1
         return output
 
-
+    def get_singleImg(self, x):
+        with torch.no_grad():
+           x_recons = self.forward(x)
+        return x_recons
 

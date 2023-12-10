@@ -25,13 +25,13 @@ import copy
 from pytorch_lightning import LightningModule, Trainer
 
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
-from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, DenoisingModel
 from VAE_folder.VAE_model import VAE
 import random
 # from memory_profiler import profile
 # import sys 
 
-
+# renetIn_denoiser = DenoisingModel()
 
 class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model, 
@@ -42,8 +42,9 @@ class Resnet_trainer():
               k_epoch_sampleSelection=3,
               random_candidateSelection=False,
               augmente_epochs_list=None,
-              residual_connection_flag=False, residual_connection_method=None,
-              denoise_flag=False, denoise_model=None):
+              residual_connection_flag=False, residual_connection_method=None,   # resConnect/Denoise for vae
+              denoise_flag=False, denoise_model=None,                            # resConnect/Denoise for vae
+              in_denoiseRecons_lossFlag=False):                                     # built-in denoisers
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -60,12 +61,17 @@ class Resnet_trainer():
     self.augmentation_transforms = augmentation_transforms
     self.augmentation_model = augmentation_model
     self.model_transforms = model_transforms
-
+    # resConnect/Denoise for vae
     self.residual_connection_flag=residual_connection_flag
     self.residual_connection_method=residual_connection_method
     self.denoise_flag = denoise_flag
     self.denoise_model = denoise_model
-
+    # builtin_denoise
+    self.builtin_denoise_model = DenoisingModel()
+    self.denoiser_optimizer = torch.optim.Adam(self.builtin_denoise_model.parameters(), lr=0.0001)
+    self.denoiser_loss = torch.nn.CrossEntropyLoss()
+    self.in_denoiseRecons_lossFlag = in_denoiseRecons_lossFlag
+    # basic params
     self.batch_size = batch_size
     self.num_classes = num_classes
     self.accumulation_steps  = accumulation_steps # gradient accumulation steps
@@ -73,7 +79,19 @@ class Resnet_trainer():
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
     self.random_candidateSelection = random_candidateSelection
      
+  def train_builtIn_denoiser(self, curentIter, currentIter_resnetLoss, img):
+    # print(f"currentIter_loss {currentIter_loss}")
+    with torch.no_grad():
+      denoiser_output = self.builtin_denoise_model(img)
+      denoiser_loss = self.denoiser_loss(denoiser_output, img)
 
+    self.denoiser_optimizer.zero_grad()
+    totalLoss = currentIter_resnetLoss + denoiser_loss
+    totalLoss.backward()
+    self.denoiser_optimizer.step()
+    if curentIter % 100 == 0:
+      print(f"currentIter_loss {totalLoss}")
+    return self.builtin_denoise_model
 
   def selection_candidates(self, current_allId_list, current_allEnt_list, current_allLoss_list, history_candidates_id, 
                           #  history_entropy_candidates, history_num_candidates, history_meanLoss_candidates,
@@ -160,6 +178,7 @@ class Resnet_trainer():
     avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
     accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
 
+    denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
 
     # define the training dataset
     augmented_dataset = AugmentedDataset(
@@ -203,6 +222,7 @@ class Resnet_trainer():
       self.model.train()  
       for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
       # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+        self.model.train()  
         self.optimizer.zero_grad()
         img_tensor = Variable(img_tensor).to(device)
         label_tensor = Variable(label_tensor).to(device)
@@ -232,8 +252,32 @@ class Resnet_trainer():
           self.optimizer.step()
           # self.optimizer.zero_grad()
 
+        # built_denoiser, only starts after 10th epoch
+        if self.augmentation_type == 'builtIn_denoiser':
+            print('did train_builtIn_denoiser')
+            denoiser_output = self.builtin_denoise_model(img_tensor)
+            self.model.eval()
+            denoiser_resnet_output = self.model(denoiser_output)
+            denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor)
+            if self.in_denoiseRecons_lossFlag:
+              denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+            print(f"denoiser_loss {denoiser_loss.item()}")
+            self.denoiser_optimizer.zero_grad()
+            denoiser_loss.backward()
+            self.denoiser_optimizer.step()
+            denoiserLoss_metric.update(denoiser_loss.item())
+
+      #################################################################
       # End of iteration -- running over once all data in the dataloader
+      #################################################################
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
+      if self.augmentation_type == 'builtIn_denoiser':
+        builtIn_denoiserComment = 'builtIn_denoiser/'
+        if self.in_denoiseRecons_lossFlag:
+          builtIn_denoiserComment += 'discr_reconstrLoss'
+        else:
+          builtIn_denoiserComment += 'discrLoss'
+        writer.add_scalar(builtIn_denoiserComment, denoiserLoss_metric.compute().cpu().numpy(), epoch+1)
       # writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
       # start to collect the hard samples infos at the first epoch
@@ -249,14 +293,16 @@ class Resnet_trainer():
       writer.add_scalar('Mean loss of hard samples', np.mean(currentEpoch_lossCandidate), epoch+1)
       
       # if augmente
-      if self.augmentation_type:
+      if self.augmentation_type: # or self.builtin_denoise_flag
+          # design the aug_epo list
           if self.run_epochs > 20:
             if self.augmente_epochs_list is None:     # generate an epoch_list for augmentation
               self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
           else:
             self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
           
-          # if augmente at th
+            
+          # Augmentation_Method, if augmente at j_th
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
             if self.random_candidateSelection:
               augmemtation_id = currentEpoch_candidateId
@@ -284,10 +330,12 @@ class Resnet_trainer():
               augmented_dataset.tf_writer = writer
               augmented_dataset.residual_connection_flag=self.residual_connection_flag
               augmented_dataset.residual_connection_method=self.residual_connection_method
-              # denoiser
+              # denoiser for vae model
               augmented_dataset.denoise_flag=self.denoise_flag
               augmented_dataset.denoise_model=self.denoise_model
- 
+              # built-in denoiser
+              augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
+              augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
               # to visualize the common id candidates' performance
               if self.random_candidateSelection:
                 pass
@@ -321,7 +369,9 @@ class Resnet_trainer():
           avg_loss_metric_test.update(loss_val.item())
           accuracy_metric_test.update(test_output_probs, label_tensor)
 
-
+      #######################################################################
+      # end of one epoch
+      #######################################################################
       average_loss_train_epoch = avg_loss_metric_train.compute().cpu().numpy()
       average_loss_test_epoch = avg_loss_metric_test.compute().cpu().numpy()
       average_accuracy_train_epoch = accuracy_metric_train.compute().item()
@@ -340,5 +390,7 @@ class Resnet_trainer():
       accuracy_metric_train.reset()
       avg_loss_metric_test.reset()
       accuracy_metric_test.reset()
+
+      denoiserLoss_metric.reset()
 
     writer.close()
