@@ -171,7 +171,8 @@ class Resnet_trainer():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     self.model.to(device)
-
+    self.builtin_denoise_model.to(device)
+    
     # basic train/test loss/accuracy
     avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
     accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
