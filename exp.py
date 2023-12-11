@@ -67,8 +67,7 @@ if __name__ == '__main__':
   parser.add_argument('--in_denoiseRecons_lossFlag', action='store_true', help='Use builtIn denoise model')
   # parser.add_argument('--denoise_model', type=str, default=None, help='Denoise model')
 
-  parser.add_argument('--vae_accumulationSteps', type=int, default=4, help='Accumulation steps for VAE training')
-  parser.add_argument('--vae_trainEpochs', type=int, default=10, help='Number of epochs to train vae')
+  parser.add_argument('--vae_trainEpochs', type=int, default=100, help='Number of epochs to train vae')
   parser.add_argument('--vae_kernelNum', type=int, default=256, help='Number of kernels in the first layer of the VAE')
   parser.add_argument("--vae_zSize", type=int, default=2048, help="Size of the latent vector")
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
@@ -300,6 +299,18 @@ if __name__ == '__main__':
   #   resnet_trainedDenoiser = train_denoiseModel
   # else:
   #   resnet_trainedDenoiser = None
+
+
+  ############################
+  # tf.writer(comment)
+  ###########################
+  # exp_writerName = 'resnet' 
+  # if args.pretrained_flag:
+  #   exp_writerName += 'Pretrain ' + str(args.dataset) 
+  # exp_writerName += str(args.run_epochs)+'epo ' + str(args.batch_size)+'bs ' + str(args.lr)+'lr ' + str(args.l2)+'l2 ' 
+  # + str(args.entropy_threshold)+'ent' 
+  # + str(args.simpleAugmentation_name)+'augName' + str(args.k_epoch_sampleSelection)+'k_epoch' + str(args.augmente_epochs_list)+'augment_epochs_list' + str(args.residualConnection_flag)+'residualConnection' + str(args.residual_connection_method)+'residualConnectionMethod' + str(args.denoise_flag)+'denoise' + str(args.in_denoiseRecons_lossFlag)+'in_denoiseRecons_lossFlag'
+
 
   ############################
   if args.pretrained_flag:

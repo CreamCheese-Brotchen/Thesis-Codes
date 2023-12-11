@@ -303,7 +303,7 @@ class Resnet_trainer():
             self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
           
             
-          # Augmentation_Method, if augmente at j_th
+          # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
             if self.random_candidateSelection:
               augmemtation_id = currentEpoch_candidateId
@@ -338,27 +338,37 @@ class Resnet_trainer():
               augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
               augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
               # to visualize the common id candidates' performance
-              if self.random_candidateSelection:
-                pass
-              else:
-                if self.k_epoch_sampleSelection != 0:
-                  search_ids = torch.tensor(list(augmemtation_id))                    # common_Id from k previous epochs
-                  searchRange_ids = torch.tensor(currentEpoch_candidateId)              # id of candidates at this epoch
-                  loss_allcandidates = np.asarray(currentEpoch_lossCandidate).tolist()  # loss of candidates at this epoch
-                  # print(search_ids)
-                  # print(searchRange_ids)
-                  # print(loss_allcandidates)
-                  common_id_indices = torch.hstack([torch.where(searchRange_ids == id_search)[0] for id_search in search_ids]).tolist()  # get the indices of common_id in the searchRange_ids
-                  common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
-                  print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
-                  writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
+              # if self.random_candidateSelection:
+              #   pass
+              # else:
+              #   if self.k_epoch_sampleSelection != 0:
+              #     search_ids = torch.tensor(list(augmemtation_id))                    # common_Id from k previous epochs
+              #     searchRange_ids = torch.tensor(currentEpoch_candidateId)              # id of candidates at this epoch
+              #     loss_allcandidates = np.asarray(currentEpoch_lossCandidate).tolist()  # loss of candidates at this epoch
+              #     # print(search_ids)
+              #     # print(searchRange_ids)
+              #     # print(loss_allcandidates)
+              #     common_id_indices = torch.hstack([torch.where(searchRange_ids == id_search)[0] for id_search in search_ids]).tolist()  # get the indices of common_id in the searchRange_ids
+              #     common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
+              #     print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
+              #     writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
             # if list(augmemtation_id) is empty, no hard samples & no augmentation
             else:  
               print(f'no augmentation at {epoch} epoch as there are no hard samples')
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
+          if (epoch>=self.augmente_epochs_list[0]) and (self.random_candidateSelection is False) and (self.k_epoch_sampleSelection != 0):
+            if self.k_epoch_sampleSelection != 0:
+              search_ids = torch.tensor(list(augmemtation_id))                    # common_Id from k previous epochs
+              searchRange_ids = torch.tensor(currentEpoch_candidateId)              # id of candidates at this epoch
+              loss_allcandidates = np.asarray(currentEpoch_lossCandidate).tolist()  # loss of candidates at this epoch
+              common_id_indices = torch.hstack([torch.where(searchRange_ids == id_search)[0] for id_search in search_ids]).tolist()  # get the indices of common_id in the searchRange_ids
+              common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
+              print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
+              writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
 
+            
       self.model.eval()
       with torch.no_grad():
         for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):

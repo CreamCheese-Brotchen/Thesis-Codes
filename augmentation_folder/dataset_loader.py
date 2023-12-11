@@ -135,3 +135,28 @@ def model_numClasses(dataset_name):
   if dataset_name == 'Food101':
     classes_num = 101
   return classes_num
+
+def boardWrier_generator(args):
+  basic = [
+  args['dataset'],
+  f"{args['entropy_threshold']}ent",
+  f"{args['run_epochs']}epo",
+  f"{args['candidate_start_epoch']}se",
+  f"lr_{args['lr']}",
+  f"l2_{args['l2']}",
+  f"{args['batch_size']}bs",]
+  if args['augmentation_type'] == 'simple':
+    basic.append(f"{args['simpleAugmentation_name']}")
+  else:
+    basic.append(f"{args['augmentation_type']}Aug")
+  
+  return basic
+  # if args.
+    
+    # basic.extend([
+    #   f"{args['augmentation_type']}Aug",
+    #   f"vaeZ_{args['vae_zSize']}",
+    #   f"vaeLr_{args['vae_lr']}",
+    # ])
+
+

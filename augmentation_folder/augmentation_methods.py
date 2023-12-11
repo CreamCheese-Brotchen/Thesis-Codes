@@ -91,7 +91,8 @@ class AugmentedDataset(Dataset):
 
           if self.augmentation_type == 'builtIn_denoiser':
             original_data = data
-            data  = self.builtIn_denoise_model.get_singleImg(data.unsqueeze(0)).squeeze(0).to(original_data.device)
+            
+            data  = self.builtIn_denoise_model.get_singleImg(data)
             if self.tensorboard_epoch:
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)
@@ -236,15 +237,21 @@ class DenoisingModel(torch.nn.Module):
     def __init__(self):
         super(DenoisingModel, self).__init__()
         self.conv = torch.nn.Conv2d(in_channels=3, out_channels=3, kernel_size=3, padding='same')
-        
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     def forward(self, input):
         f = non_local_op(input, softmax=True, embed=False)
         f1 = self.conv(f)
         output = input + f1
         return output
-
-    def get_singleImg(self, x):
+    
+    def to(self, device):
+    # When moving to a device, update the device attribute
+      self.device = device
+      return super(DenoisingModel, self).to(device)
+    
+    def get_singleImg(self, x):    
         with torch.no_grad():
-           x_recons = self.forward(x)
-        return x_recons
+           x_recons = self.forward(x.unsqueeze(0))
+        return x_recons.squeeze(0)
 
