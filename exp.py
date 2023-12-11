@@ -326,7 +326,6 @@ if __name__ == '__main__':
                                   denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
                                   in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                 )
-    print(resnet_trainedDenoiser)
   else:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
                                     model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,

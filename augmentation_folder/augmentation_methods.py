@@ -91,8 +91,7 @@ class AugmentedDataset(Dataset):
 
           if self.augmentation_type == 'builtIn_denoiser':
             original_data = data
-            
-            data  = self.builtIn_denoise_model.get_singleImg(data)
+            data  = self.builtIn_denoise_model.get_singleImg(data.to(self.builtIn_denoise_model.device)).to(original_data.device)  
             if self.tensorboard_epoch:
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)
