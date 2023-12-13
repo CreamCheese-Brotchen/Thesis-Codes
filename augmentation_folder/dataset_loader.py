@@ -136,21 +136,71 @@ def model_numClasses(dataset_name):
     classes_num = 101
   return classes_num
 
-def boardWrier_generator(args):
-  basic = [
-  args['dataset'],
-  f"{args['entropy_threshold']}ent",
-  f"{args['run_epochs']}epo",
-  f"{args['candidate_start_epoch']}se",
-  f"lr_{args['lr']}",
-  f"l2_{args['l2']}",
-  f"{args['batch_size']}bs",]
-  if args['augmentation_type'] == 'simple':
-    basic.append(f"{args['simpleAugmentation_name']}")
+def boardWriter_generator(args):
+
+  resnet_comment = []
+  if args.reduce_dataset:
+    resnet_comment.append('Debug')
+  if args.pretrained_flag:
+    resnet_comment.append('Pretrained')
+  resnet_comment.append(args.dataset)
+
+
+  ##############################
+  ## augmentation 
+  ##############################
+  if args.augmentation_type == 'simple':
+    resnet_comment.append(f"{ args.simpleAugmentation_name}")
+  elif args.augmentation_type == 'builtIn_denoiser':
+    if args.in_denoiseRecons_lossFlag:
+      resnet_comment.append(f"inDenoiser_totalLoss")
+    else:
+      resnet_comment.append(f" inDenoiser")
+  elif args.augmentation_type == 'vae':
+    resnet_comment.append(args.augmentation_type)
+    if args.residualConnection_flag:
+      resnet_comment.append(
+        f" vae_{args.residual_connection_method}Residual",
+      )
+    if args.denoise_flag:
+      resnet_comment.append(" vae_denoise")
+  elif args.augmentation_type == 'navie_denoiser':
+    resnet_comment.append(f" navieDenoiser")
   else:
-    basic.append(f"{args['augmentation_type']}Aug")
+    resnet_comment.append(f" noAug")
+
+
+  ##############################
+  ## basic
+  ##############################
+  if args.random_candidateSelection:
+    resnet_comment.append(f"randomCandidate")
+  elif args.k_epoch_sampleSelection == 0:
+    resnet_comment.append(f"currentEpo_candidate")
+  else:
+    resnet_comment.append(f"{ args.k_epoch_sampleSelection}Epo_candidate")
+
+  resnet_comment.extend([
+    f"{ args.entropy_threshold}ent",
+    f"{ args.run_epochs}epo",
+    f"{ args.candidate_start_epoch}se",
+    f"lr_{ args.lr}",
+    f"l2_{ args.l2}",
+    f"{ args.batch_size}bs",])
+
+  vae_comment = []
+  if args.augmentation_type == 'vae':
+    vae_comment.extend([
+      f"{args.augmentation_type}",
+      f" Z_{args.vae_zSize}",
+      f" K_{args.vae_kernelNum}"
+      f" lr_{args.vae_lr}",
+      f" l2_{args.vae_weightDecay}",
+      f" {args.vae_trainEpochs}epo",
+    ])
+
   
-  return basic
+  return ' '.join(resnet_comment), ' '.join(vae_comment)
   # if args.
     
     # basic.extend([

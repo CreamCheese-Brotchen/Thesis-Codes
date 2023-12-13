@@ -14,12 +14,12 @@ from torch.nn import functional as F
 #################################################################################################################
 class AugmentedDataset(Dataset):
     def __init__(self, dataset, target_idx_list, augmentation_transforms, 
-                 augmentation_type, model=None, model_transforms=None,
-                 tensorboard_epoch=None, tf_writer=None,
-                 residual_connection_flag=False, residual_connection_method=None,
-                 denoise_flag=False, denoise_model=None,
-                 builtIn_denoise_model=None,
-                 in_denoiseRecons_lossFlag=False):
+                augmentation_type, model=None, model_transforms=None,
+                tensorboard_epoch=None, tf_writer=None,
+                residual_connection_flag=False, residual_connection_method=None,
+                denoise_flag=False, denoise_model=None,
+                builtIn_denoise_model=None,
+                in_denoiseRecons_lossFlag=False):
         self.dataset = dataset
         self.target_idx_list = target_idx_list
         self.augmentation_transforms = augmentation_transforms
@@ -97,7 +97,7 @@ class AugmentedDataset(Dataset):
                 combined_image = torch.cat((original_data, data.detach()), dim=2)
                 comment = 'Resnet_Orig/Aug & builtIn_denoiser img'
                 if self.in_denoiseRecons_lossFlag:
-                   comment+= '(totaLoss)'
+                  comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
 
           if self.augmentation_type == 'GANs':

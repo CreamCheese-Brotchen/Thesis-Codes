@@ -28,7 +28,7 @@ from torch.nn import functional as F
 # from memory_profiler import profile
 # import sys 
 
-from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses
+from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders, model_numClasses, boardWriter_generator
 from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, vae_gans_augmentation, DenoisingModel
 from VAE_folder.VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
@@ -42,7 +42,6 @@ if __name__ == '__main__':
   parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
-  parser.add_argument('--tensorboard_comment', type=str, default='test_run', help='Comment to append to tensorboard logs')
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
   parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
   parser.add_argument('--l2', type=float, default=1e-5, help='L2 regularization')
@@ -73,7 +72,6 @@ if __name__ == '__main__':
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
   parser.add_argument("--vae_weightDecay", type=float, default=1e-5, help="VAE Weight decay")
   parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
-  parser.add_argument('--vae_tensorboardComment', type=str, default='debug with vae as augmentation', help='tensorboard comment for vae')
 
   parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
   parser.add_argument('--GANs_latentDim', type=int, default=None, help='latent dim for GANs')
@@ -86,7 +84,7 @@ if __name__ == '__main__':
 
 
   ############################
-  # dataloader & model define
+  # dataloader & model define (pretrain or not)
   ###########################
   classes_num = model_numClasses(args.dataset)
   if args.pretrained_flag:
@@ -98,6 +96,8 @@ if __name__ == '__main__':
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
   
+  resnet_boardComment, vae_boardComment = boardWriter_generator(args)
+
   ############################
   ## dataset loader
   ###########################
@@ -125,10 +125,6 @@ if __name__ == '__main__':
     transforms.Normalize(mean, std),])
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=3, bias=False)
-  
-  # num_ftrs = resnet.fc.in_features
-  # resnet.fc = torch.nn.Linear(num_ftrs, classes_num)  
-  # print(f"Number of classes: {classes_num}", flush=True)
 
   num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
@@ -155,7 +151,7 @@ if __name__ == '__main__':
   ############################
   # denoise model
   ###########################
-  if args.denoise_flag:
+  if args.denoise_flag or args.augmentation_type == 'navie_denoiser':
     print('using denoise model, starts to train the denoise model')
     train_denoiseModel = DenoisingModel()
     denoiser_optimizer = torch.optim.Adam(train_denoiseModel.parameters(), lr=0.0001)
@@ -198,15 +194,11 @@ if __name__ == '__main__':
       vae_trainEpochs = 10
     else: 
       vae_trainEpochs = args.vae_trainEpochs
-    # vae_trainer = Trainer(max_epochs=vae_trainEpochs, accumulate_grad_batches=args.vae_accumulationSteps, accelerator="auto", strategy="auto", devices="auto", enable_progress_bar=False)
-    # vae_trainer.tune(vae_model, dataset_loaders['train'])
-    # vae_trainer.fit(vae_model, dataset_loaders['train'])GANs_latentDim
-    # passing the vae trainer to the model_trainer
     train_model(vae_model, dataset_loaders,
             epochs=args.vae_trainEpochs,
             lr=args.vae_lr,
             weight_decay=args.vae_weightDecay,
-            tensorboard_comment = args.vae_tensorboardComment,
+            tensorboard_comment = vae_boardComment,
             )
     augmentationType = args.augmentation_type
     augmentationTransforms = vae_augmentation
@@ -311,11 +303,10 @@ if __name__ == '__main__':
   # + str(args.entropy_threshold)+'ent' 
   # + str(args.simpleAugmentation_name)+'augName' + str(args.k_epoch_sampleSelection)+'k_epoch' + str(args.augmente_epochs_list)+'augment_epochs_list' + str(args.residualConnection_flag)+'residualConnection' + str(args.residual_connection_method)+'residualConnectionMethod' + str(args.denoise_flag)+'denoise' + str(args.in_denoiseRecons_lossFlag)+'in_denoiseRecons_lossFlag'
 
-
   ############################
   if args.pretrained_flag:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs+20), start_epoch=(args.candidate_start_epoch+10),
-                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
+                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
                                   lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
@@ -328,7 +319,7 @@ if __name__ == '__main__':
                                 )
   else:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
-                                    model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=args.tensorboard_comment,
+                                    model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
                                     augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                     augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
                                     lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr

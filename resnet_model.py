@@ -255,14 +255,13 @@ class Resnet_trainer():
 
         # built_denoiser, only starts after 10th epoch
         if self.augmentation_type == 'builtIn_denoiser':
-            print('did train_builtIn_denoiser')
             denoiser_output = self.builtin_denoise_model(img_tensor)
             self.model.eval()
             denoiser_resnet_output = self.model(denoiser_output)
             denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor)
             if self.in_denoiseRecons_lossFlag:
               denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
-            print(f"denoiser_loss {denoiser_loss.item()}")
+            # print(f"denoiser_loss {denoiser_loss.item()}")
             self.denoiser_optimizer.zero_grad()
             denoiser_loss.backward()
             self.denoiser_optimizer.step()
@@ -309,15 +308,14 @@ class Resnet_trainer():
               augmemtation_id = currentEpoch_candidateId
             # choose the hard samples according to the cross-entropy 
             else:
-              if self.k_epoch_sampleSelection != 0:  # if you choose to use hard samples over previous k epochs, or use the lastest epoch's hard samples (self.k_epoch_sampleSelection=0)
+              if self.k_epoch_sampleSelection!=0:  # if you choose to use hard samples over previous k epochs, or use the lastest epoch's hard samples (self.k_epoch_sampleSelection=0)
                 print(f'use previous {self.k_epoch_sampleSelection}epoch_sampleSelection')
                 k_epoch_candidateId = self.commonId_k_epochSelection(history_candidates_id=history_candidates_id, k=self.k_epoch_sampleSelection)  # select the common candidates from the last 3 epochs
                 if len(k_epoch_candidateId) != 0:
                   augmemtation_id = k_epoch_candidateId
                   print(f"{len(augmemtation_id)} common_ids at epoch {epoch+1}")
                 else:
-                  augmemtation_id = currentEpoch_candidateId
-                  # print(f"no common_id in the previous k epochs")
+                  augmemtation_id = currentEpoch_candidateId   # if randomSelection, or just use current current
               else: # if not choose hard samples over previous k epochs, then choose the hard samples at this epoch
                 print('use current_epoch_sampleSelection')
                 augmemtation_id = currentEpoch_candidateId
@@ -359,7 +357,7 @@ class Resnet_trainer():
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
 
           if (epoch>=self.augmente_epochs_list[0]) and (self.random_candidateSelection is False) and (self.k_epoch_sampleSelection != 0):
-            if self.k_epoch_sampleSelection != 0:
+            if (self.k_epoch_sampleSelection!=0) and (augmemtation_id):
               search_ids = torch.tensor(list(augmemtation_id))                    # common_Id from k previous epochs
               searchRange_ids = torch.tensor(currentEpoch_candidateId)              # id of candidates at this epoch
               loss_allcandidates = np.asarray(currentEpoch_lossCandidate).tolist()  # loss of candidates at this epoch
