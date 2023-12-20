@@ -19,7 +19,8 @@ class AugmentedDataset(Dataset):
                 residual_connection_flag=False, residual_connection_method=None,
                 denoise_flag=False, denoise_model=None,
                 builtIn_denoise_model=None,
-                in_denoiseRecons_lossFlag=False):
+                in_denoiseRecons_lossFlag=False,
+                builtIn_vae_model=None):
         self.dataset = dataset
         self.target_idx_list = target_idx_list
         self.augmentation_transforms = augmentation_transforms
@@ -37,6 +38,8 @@ class AugmentedDataset(Dataset):
         # built-in denoiser
         self.builtIn_denoise_model = builtIn_denoise_model
         self.in_denoiseRecons_lossFlag = in_denoiseRecons_lossFlag
+
+        self.builtIn_vae_model = builtIn_vae_model
 
     def __getitem__(self, index):
         data, label, idx = self.dataset[index]
@@ -99,6 +102,17 @@ class AugmentedDataset(Dataset):
                 if self.in_denoiseRecons_lossFlag:
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'builtIn_vae':
+            original_data = data
+            data  = self.builtIn_vae_model.get_singleImg(data.to(self.builtIn_vae_model.device)).to(original_data.device)  
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data.detach()), dim=2)
+                comment = 'Resnet_Orig/Aug & builtIn_vae img'
+                if self.in_denoiseRecons_lossFlag:
+                  comment+= '(totaLoss)'
+                self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)  
 
           if self.augmentation_type == 'GANs':
             original_data = data  

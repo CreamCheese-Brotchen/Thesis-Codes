@@ -52,7 +52,7 @@ if __name__ == '__main__':
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
-  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs", "navie_denoiser", 'builtIn_denoiser'), help='Augmentation type')
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
   parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
@@ -212,8 +212,8 @@ if __name__ == '__main__':
     augmentationModel = None
     augmentationTrainer = None
   #############################
-  elif args.augmentation_type == 'builtIn_denoiser':
-    print('using builtIn_denoiser augmentation')
+  elif args.augmentation_type == 'builtIn_denoiser' or args.augmentation_type =='builtIn_vae':
+    print(f'using {args.augmentation_type} augmentation')
     augmentationType = args.augmentation_type
     # the augmentation model would be 
     augmentationTransforms = None
@@ -283,7 +283,7 @@ if __name__ == '__main__':
   #     for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['train']):
   #       denoiser_optimizer.zero_grad()
   #       denoised_img = train_denoiseModel(img_tensor)
-  #       denoiser_loss = F.mse_loss(denoised_img, img_tensor, size_average=False) / img_tensor.size(0)
+#       denoiser_loss = F.mse_loss(denoised_img, img_tensor, size_average=False) / img_tensor.size(0)
   #       denoiser_loss.backward()
   #       denoiser_optimizer.step()
   #     if (num+1) in [20, 40, 60, 80, 100]:
@@ -294,18 +294,8 @@ if __name__ == '__main__':
 
 
   ############################
-  # tf.writer(comment)
-  ###########################
-  # exp_writerName = 'resnet' 
-  # if args.pretrained_flag:
-  #   exp_writerName += 'Pretrain ' + str(args.dataset) 
-  # exp_writerName += str(args.run_epochs)+'epo ' + str(args.batch_size)+'bs ' + str(args.lr)+'lr ' + str(args.l2)+'l2 ' 
-  # + str(args.entropy_threshold)+'ent' 
-  # + str(args.simpleAugmentation_name)+'augName' + str(args.k_epoch_sampleSelection)+'k_epoch' + str(args.augmente_epochs_list)+'augment_epochs_list' + str(args.residualConnection_flag)+'residualConnection' + str(args.residual_connection_method)+'residualConnectionMethod' + str(args.denoise_flag)+'denoise' + str(args.in_denoiseRecons_lossFlag)+'in_denoiseRecons_lossFlag'
-
-  ############################
   if args.pretrained_flag:
-    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs+20), start_epoch=(args.candidate_start_epoch+10),
+    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs), start_epoch=(args.candidate_start_epoch),
                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,

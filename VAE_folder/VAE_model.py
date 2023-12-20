@@ -20,7 +20,7 @@ import os
 
 
 class VAE(nn.Module):
-    def __init__(self, image_size, channel_num, kernel_num, z_size, loss_func):
+    def __init__(self, image_size, channel_num, kernel_num, z_size, loss_func=None):
         # configurations
         super().__init__()
         self.image_size = image_size
