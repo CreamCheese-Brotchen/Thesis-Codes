@@ -290,16 +290,17 @@ class Resnet_trainer():
       # End of iteration -- running over once all data in the dataloader
       #################################################################
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
-      if self.augmentation_type == 'builtIn_denoiser' or (self.augmentation_type == 'builtIn_vae'):
-        builtIn_modelComment = str(self.augmentation_type) + '/'
-        if self.in_denoiseRecons_lossFlag:
-          builtIn_modelComment += 'discr_reconstrLoss'
-        else:
-          builtIn_modelComment += 'discrLoss'
-        if self.augmentation_type == 'builtIn_denoiser':
-          writer.add_scalar(builtIn_modelComment, denoiserLoss_metric.compute().cpu().numpy(), epoch+1)
-        else:
-          writer.add_scalar(builtIn_modelComment, resnet_vae_metric.compute().cpu().numpy(), epoch+1)
+      if epoch >= 10:
+        if self.augmentation_type == 'builtIn_denoiser' or (self.augmentation_type == 'builtIn_vae'):
+          builtIn_modelComment = str(self.augmentation_type) + '/'
+          if self.in_denoiseRecons_lossFlag:
+            builtIn_modelComment += 'discr_reconstrLoss'
+          else:
+            builtIn_modelComment += 'discrLoss'
+          if self.augmentation_type == 'builtIn_denoiser':
+            writer.add_scalar(builtIn_modelComment, denoiserLoss_metric.compute().cpu().numpy(), epoch+1)
+          else:
+            writer.add_scalar(builtIn_modelComment, resnet_vae_metric.compute().cpu().numpy(), epoch+1)
       # writer.add_histogram('Loss of all samples across the epoch', torch.tensor(list(flatten(loss_candidates_list))), epoch+1)
 
       # start to collect the hard samples infos at the first epoch

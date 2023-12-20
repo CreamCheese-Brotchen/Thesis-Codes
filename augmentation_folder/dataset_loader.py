@@ -166,6 +166,8 @@ def boardWriter_generator(args):
       resnet_comment.append(" vae_denoise")
   elif args.augmentation_type == 'navie_denoiser':
     resnet_comment.append(f" navieDenoiser")
+  elif args.augmentation_type == 'builtIn_vae':
+    resnet_comment.append(f" builtIn_vae")
   else:
     resnet_comment.append(f" noAug")
 
