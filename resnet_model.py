@@ -78,11 +78,12 @@ class Resnet_trainer():
     self.augmente_epochs_list = augmente_epochs_list  # number of epochs for augmentation, list [20, 30, ...., 90]
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
     self.random_candidateSelection = random_candidateSelection
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  
     if self.augmentation_type == 'builtIn_vae':
       imgs, _, _ = next(iter(self.dataloader['train']))
       image_size = imgs[0].size()
       print(f"image_size {image_size[1]}, num_channel {image_size[0]}"	)
-      self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=1024, loss_func=None)
+      self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=1024, loss_func=None).to(self.device)
       self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=0.0001)
      
   def train_builtIn_denoiser(self, curentIter, currentIter_resnetLoss, img):
