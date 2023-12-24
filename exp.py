@@ -49,6 +49,7 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
   parser.add_argument('--reduce_dataset', action='store_true', help='Reduce the dataset size (for testing purposes only)')
   parser.add_argument('--pretrained_flag', action='store_true', help='Use pretrained model')
+  parser.add_argument('--addComment', default=None, help='Aditional comment to tensorboard')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
@@ -91,6 +92,8 @@ if __name__ == '__main__':
     print('using pretrained resnet')
     # resnet = resnet18(pretrained=True)
     resnet = resnet18(weights='DEFAULT')
+    for param in resnet.parameters():
+      param.requires_grad = False
     resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
   else:
     print('using non-pretrained resnet')

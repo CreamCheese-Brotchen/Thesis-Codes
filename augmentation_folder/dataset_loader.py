@@ -139,10 +139,14 @@ def model_numClasses(dataset_name):
 def boardWriter_generator(args):
 
   resnet_comment = []
+  
+  if args.addComment:
+    resnet_comment.append(args.addComment)
+
   if args.reduce_dataset:
-    resnet_comment.append('Debug')
+    resnet_comment.append(' Debug')
   if args.pretrained_flag:
-    resnet_comment.append('Pretrained')
+    resnet_comment.append(' Pretrained')
   resnet_comment.append(args.dataset)
 
 
