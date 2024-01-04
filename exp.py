@@ -38,7 +38,7 @@ from param_tune_folder.lrSearch import lrSearch
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
-  parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
+  parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", 'CINIC10', "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
   parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
@@ -92,8 +92,8 @@ if __name__ == '__main__':
     print('using pretrained resnet')
     # resnet = resnet18(pretrained=True)
     resnet = resnet18(weights='DEFAULT')
-    for param in resnet.parameters():
-      param.requires_grad = False
+    # for param in resnet.parameters():
+    #   param.requires_grad = False
     resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
   else:
     print('using non-pretrained resnet')
@@ -119,6 +119,7 @@ if __name__ == '__main__':
         ])
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+    resnet.maxpool = torch.nn.Identity()
   else:
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)

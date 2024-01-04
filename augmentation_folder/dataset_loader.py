@@ -101,6 +101,15 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
     data_train = datasets.Food101(root='./data', split='train', download=True, transform=transforms_train)
     data_test = datasets.Food101(root='./data', split='test', download=True, transform=transforms_train)
 
+  if dataset_name == 'CINIC10':
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device == 'cpu':
+      cinic_directory = 'D:/master_program/thesis/thesis-repo/data/CINIC-10'
+    else:
+      cinic_directory = './data/CINIC-10'
+    data_train = datasets.ImageFolder(root=cinic_directory + '/train', transform=transforms_train)
+    data_test = datasets.ImageFolder(root=cinic_directory + '/test', transform=transforms_test)
+
   # debug
   if reduce_dataset:
     data_train = data_utils.Subset(data_train, torch.arange(32))
@@ -127,7 +136,7 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
 
 
 def model_numClasses(dataset_name):
-  tenClasses = ['CIFAR10', 'SVHN', 'MNIST', 'FashionMNIST']
+  tenClasses = ['CIFAR10', 'SVHN', 'CINIC10','MNIST', 'FashionMNIST']
   if dataset_name in tenClasses:
     classes_num = 10
   if dataset_name == 'Flowers102':
