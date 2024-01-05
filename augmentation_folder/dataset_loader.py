@@ -164,6 +164,8 @@ def boardWriter_generator(args):
   ##############################
   if args.augmentation_type == 'simple':
     resnet_comment.append(f"{ args.simpleAugmentation_name}")
+  elif args.augmentation_type == 'simple_crop' or (args.augmentation_type == 'simple_centerCrop'):
+    resnet_comment.append(f"{ args.augmentation_type}")
   elif args.augmentation_type == 'builtIn_denoiser':
     if args.in_denoiseRecons_lossFlag:
       resnet_comment.append(f"inDenoiser_totalLoss")

@@ -53,8 +53,8 @@ if __name__ == '__main__':
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
-  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
-  parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", 
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", 'simple_crop', 'simple_centerCrop', "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
+  parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "rotation",
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
 
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
-  parser.add_argument('--residual_connection_method', type=str, default=None, choices=("sum", "mean"), help='Residual connection method')
+  parser.add_argument('--residual_connection_method', type=str, default='sum', choices=("sum", "mean"), help='Residual connection method')
   parser.add_argument('--denoise_flag', action='store_true', help='Use denoise model')
   parser.add_argument('--in_denoiseRecons_lossFlag', action='store_true', help='Use builtIn denoise model')
   # parser.add_argument('--denoise_model', type=str, default=None, help='Denoise model')
@@ -100,14 +100,14 @@ if __name__ == '__main__':
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
 
-  resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+  resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1, bias=False)
   
   resnet_boardComment, vae_boardComment = boardWriter_generator(args)
-
+  print('RESNET board comment: ', resnet_boardComment)
   ############################
   ## dataset loader
   ###########################
-  if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10']:
+  if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CINIC10']:
     mean = (0.4914, 0.4822, 0.4465)
     std = (0.2023, 0.1994, 0.2010)
     if args.norm:
@@ -185,6 +185,12 @@ if __name__ == '__main__':
     simpleAugmentation_method = simpleAugmentation_selection(args.simpleAugmentation_name)
     augmentationType = args.augmentation_type
     augmentationTransforms = simpleAugmentation_method
+    augmentationModel = None
+    augmentationTrainer = None
+  elif args.augmentation_type == "simple_crop" or (args.augmentation_type =='simple_centerCrop'):
+    print('using ' + str(args.augmentation_type) + ' augmentation')
+    augmentationType = args.augmentation_type
+    augmentationTransforms = None
     augmentationModel = None
     augmentationTrainer = None
   #############################

@@ -25,7 +25,7 @@ import copy
 from pytorch_lightning import LightningModule, Trainer
 
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
-from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, vae_augmentation, DenoisingModel
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel
 from VAE_folder.VAE_model import VAE
 import random
 # from memory_profiler import profile
@@ -189,9 +189,24 @@ class Resnet_trainer():
     # built-in augmentation model
     denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
     resnet_vae_metric = torchmetrics.MeanMetric().to(device)
-    # define the training dataset
-    augmented_dataset = AugmentedDataset(
-        dataset = self.dataloader['train'].dataset,
+
+    # define the training dataset -- temporartily replace the data with augmented data
+    # augmented_dataset = AugmentedDataset(
+    #     dataset = self.dataloader['train'].dataset,
+    #     target_idx_list = [],
+    #     augmentation_type = self.augmentation_type,
+    #     augmentation_transforms = self.augmentation_transforms,
+    #     model = self.augmentation_model,
+    #     model_transforms = self.model_transforms,
+    #     tensorboard_epoch = [],  # NEW
+    #     tf_writer = [],
+    #     )
+    # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+
+    # competely replace the data with augmented data -- create new dataset
+    train_dataloader = self.dataloader['train']
+    train_dataloader = AugmentedDataset2(
+        dataset = train_dataloader.dataset,
         target_idx_list = [],
         augmentation_type = self.augmentation_type,
         augmentation_transforms = self.augmentation_transforms,
@@ -199,10 +214,8 @@ class Resnet_trainer():
         model_transforms = self.model_transforms,
         tensorboard_epoch = [],  # NEW
         tf_writer = [],
-        )
-
-
-    train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+    )
+    train_dataloader = torch.utils.data.DataLoader(train_dataloader, batch_size=self.batch_size, shuffle=True)
 
     # tensorboard
     writer = SummaryWriter(comment=self.tensorboard_comment)
@@ -347,20 +360,21 @@ class Resnet_trainer():
             if list(augmemtation_id):
               print(f"did augmentation at {epoch+1} epoch") 
               # remain the same augmented dataset for the next 10 epochs
-              augmented_dataset.augmentation_type = self.augmentation_type
-              augmented_dataset.target_idx_list = list(augmemtation_id)
-              augmented_dataset.tensorboard_epoch = epoch+1
-              augmented_dataset.tf_writer = writer
-              augmented_dataset.residual_connection_flag=self.residual_connection_flag
-              augmented_dataset.residual_connection_method=self.residual_connection_method
-              # denoiser for vae model
-              augmented_dataset.denoise_flag=self.denoise_flag
-              augmented_dataset.denoise_model=self.denoise_model
-              # built-in denoiser
-              augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
-              augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
-              # built-in vae
-              augmented_dataset.builtIn_vae_model = self.builtin_denoise_model
+              # augmented_dataset.augmentation_type = self.augmentation_type
+              # augmented_dataset.target_idx_list = list(augmemtation_id)
+              # augmented_dataset.tensorboard_epoch = epoch+1
+              # augmented_dataset.tf_writer = writer
+              # augmented_dataset.residual_connection_flag=self.residual_connection_flag
+              # augmented_dataset.residual_connection_method=self.residual_connection_method
+              # # denoiser for vae model
+              # augmented_dataset.denoise_flag=self.denoise_flag
+              # augmented_dataset.denoise_model=self.denoise_model
+              # # built-in denoiser
+              # augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
+              # augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
+              # # built-in vae
+              # augmented_dataset.builtIn_vae_model = self.builtin_denoise_model
+              
               # to visualize the common id candidates' performance
               # if self.random_candidateSelection:
               #   pass
@@ -376,6 +390,25 @@ class Resnet_trainer():
               #     common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
               #     print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
               #     writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
+  
+              train_dataloader = AugmentedDataset2(
+                dataset = train_dataloader.dataset,
+                target_idx_list = list(augmemtation_id),
+                augmentation_type = self.augmentation_type,
+                augmentation_transforms = self.augmentation_transforms,
+                model = self.augmentation_model,
+                model_transforms = self.model_transforms,
+                tensorboard_epoch = epoch+1,  
+                tf_writer = writer,
+                residual_connection_flag = self.residual_connection_flag,
+                residual_connection_method=self.residual_connection_method,
+                denoise_flag=self.denoise_flag,
+                denoise_model=self.denoise_model,
+                builtIn_denoise_model = self.builtin_denoise_model, 
+                in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
+                builtIn_vae_model = self.builtin_denoise_model,
+              )
+              train_dataloader = torch.utils.data.DataLoader(train_dataloader, batch_size=self.batch_size, shuffle=True)
             # if list(augmemtation_id) is empty, no hard samples & no augmentation
             else:  
               print(f'no augmentation at {epoch} epoch as there are no hard samples')

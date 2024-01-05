@@ -73,9 +73,18 @@ class AugmentedDataset(Dataset):
                 combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
                 self.tf_writer.add_image(str(tf_imgComment), combined_image, self.tensorboard_epoch)
 
-          if self.augmentation_type == 'simple':
+          if self.augmentation_type == 'simple' or self.augmentation_type == 'simple_crop':
             original_data = data
-            data  = self.augmentation_transforms(data)
+            if self.augmentation_type == 'simple_crop':
+              crop_size = int(data.size(1)*0.85)
+              crop_transform = transforms.Compose([
+              transforms.RandomCrop((crop_size, crop_size)),  # Randomly crops the image to 15x15.
+              transforms.Resize((data.size(1), data.size(1))),    # Resizes the cropped image to 224x224.
+              transforms.ToTensor()             # Converts the image to a PyTorch tensor.
+            ])
+              data = crop_transform(data)
+            else:
+              data  = self.augmentation_transforms(data)
 
             if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
               if idx in self.target_idx_list[-1]:
@@ -130,6 +139,145 @@ class AugmentedDataset(Dataset):
         return len(self.dataset)
     
 
+
+#################################################################################################################
+#### replacement_func dataloader
+#################################################################################################################
+class AugmentedDataset2(Dataset):
+    def __init__(self, dataset, target_idx_list, augmentation_transforms, 
+                augmentation_type, model=None, model_transforms=None,
+                tensorboard_epoch=None, tf_writer=None,
+                residual_connection_flag=False, residual_connection_method=None,
+                denoise_flag=False, denoise_model=None,
+                builtIn_denoise_model=None,
+                in_denoiseRecons_lossFlag=False,
+                builtIn_vae_model=None):
+        self.dataset = dataset
+        self.target_idx_list = target_idx_list
+        self.augmentation_transforms = augmentation_transforms
+        self.augmentation_type = augmentation_type
+        self.model = model
+        self.model_transforms = model_transforms
+        self.tensorboard_epoch = tensorboard_epoch
+        self.tf_writer = tf_writer
+
+        self.residual_connection_flag = residual_connection_flag
+        self.residual_connection_method = residual_connection_method
+        self.denoise_flag = denoise_flag
+        self.denoise_model = denoise_model
+
+        # built-in denoiser
+        self.builtIn_denoise_model = builtIn_denoise_model
+        self.in_denoiseRecons_lossFlag = in_denoiseRecons_lossFlag
+
+        self.builtIn_vae_model = builtIn_vae_model
+
+    def __getitem__(self, index):
+        data, target, idx = self.dataset[index]
+
+        if idx in self.target_idx_list:
+        # if idx == 0:
+          if self.augmentation_type == 'vae':
+            original_data = data
+            data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32], get the augmented img from the model
+            # data  = self.augmentation_transforms(data, self.model, self.model_transforms)  # apply_augmentation
+
+            tf_imgComment = 'Resnet_Orig/Aug & vae'
+
+            if self.residual_connection_flag:
+              if self.residual_connection_method[0] == 'sum':
+                data = data + original_data
+                data = torch.clip(data, 0, 1)
+              elif self.residual_connection_method[0] == 'mean':
+                data = torch.add(data, original_data)/2
+                data = torch.clip(data, 0, 1)
+              tf_imgComment += ' & resCon_' + str(self.residual_connection_method[0])
+
+            if self.denoise_flag:
+              # vae-> denoiser = denoiser_data; original_data + denoiser_data = augmented_data
+              denoiser_data = self.denoise_model(data.unsqueeze(0))
+              data = original_data + denoiser_data.squeeze(0).detach()
+              tf_imgComment += ' & denoisImg'
+
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data.detach()), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image(str(tf_imgComment), combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'simple' or (self.augmentation_type =='simple_crop') or (self.augmentation_type =="simple_centerCrop"):
+            original_data = data
+            if self.augmentation_type == 'simple_crop':
+              crop_size = int(data.size(1)*0.85)
+              crop_transform = transforms.Compose([
+              transforms.RandomCrop((crop_size, crop_size)),  
+              transforms.Resize((data.size(1), data.size(1))),    
+              transforms.ToTensor()                   
+            ])
+              data = crop_transform(transforms.ToPILImage()(data))
+            elif self.augmentation_type == "simple_centerCrop":
+              crop_size = int(data.size(1)*0.8)
+              crop_transform = transforms.Compose([
+              transforms.CenterCrop(crop_size),  
+              transforms.Resize((data.size(1), data.size(1))),    
+              transforms.ToTensor()                   
+            ])
+              data = crop_transform(transforms.ToPILImage()(data))
+            else:
+              data  = self.augmentation_transforms(data)
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                tf_imgComment = 'Resnet_Orig/Aug & ' + str(self.augmentation_type) + 'Aug'
+                self.tf_writer.add_image(tf_imgComment, combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'navie_denoiser':
+            original_data = data
+            data  = self.denoise_model(data.unsqueeze(0))
+            data = original_data + data.squeeze(0).detach()
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                self.tf_writer.add_image('Resnet_Orig/Aug & navieDenoise', combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'builtIn_denoiser':
+            original_data = data
+            data  = self.builtIn_denoise_model.get_singleImg(data.to(self.builtIn_denoise_model.device)).to(original_data.device)  
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data.detach()), dim=2)
+                comment = 'Resnet_Orig/Aug & builtIn_denoiser img'
+                if self.in_denoiseRecons_lossFlag:
+                  comment+= '(totaLoss)'
+                self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
+
+          if self.augmentation_type == 'builtIn_vae':
+            original_data = data
+            data  = self.builtIn_vae_model.get_singleImg(data.to(self.builtIn_vae_model.device)).to(original_data.device)  
+            if self.tensorboard_epoch:
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data.detach()), dim=2)
+                comment = 'Resnet_Orig/Aug & builtIn_vae img'
+                if self.in_denoiseRecons_lossFlag:
+                  comment+= '(totaLoss)'
+                self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)  
+
+          if self.augmentation_type == 'GANs':
+            original_data = data  
+            data = self.augmentation_transforms(data, latent_model=self.model, augmentation_model=self.model_transforms).to(original_data.device)  # model: vae_model, model_transforms: GANs_trainer
+            # data  = self.augmentation_transforms(1).squeeze()  # 1: the num of imgs is 1, just one image; squeeze: remove the first dimension [1,3,32, 32] -> [3,32, 32]
+            if self.tensorboard_epoch:   # store one pair of original and augmented images per epoch
+              if idx in self.target_idx_list[-1]:
+                combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
+                writer_comment = 'Resnet_aug/original & ' + str(self.augmentation_type) + ' augmented imgs'
+                self.tf_writer.add_image(writer_comment, combined_image, self.tensorboard_epoch)
+
+        return data, target, idx
+
+    def __len__(self):
+        return len(self.dataset)
+
+
+
 #################################################################################################################
 #### VAE Augmentation Methods
 #################################################################################################################
@@ -164,6 +312,8 @@ def simpleAugmentation_selection(augmentation_name):
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.ColorJitter(brightness=.5, hue=.3), transforms.ToTensor()])
   elif augmentation_name == "center_crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(150), transforms.Resize(256), transforms.ToTensor()])
+  elif augmentation_name == "rotation":
+    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomRotation(degrees=(0, 290)), transforms.ToTensor()])
   elif augmentation_name == "gaussian_blur":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)), transforms.ToTensor()])
   elif augmentation_name == "elastic_transform":
@@ -173,7 +323,7 @@ def simpleAugmentation_selection(augmentation_name):
   elif augmentation_name == "random_resized crop":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(size=150), transforms.Resize(256), transforms.ToTensor()])
   elif augmentation_name == "random_invert":
-    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(p=0.9), transforms.ToTensor()])  
+    augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomInvert(p=0.98), transforms.ToTensor()])  
   elif augmentation_name == "random_posterize":
     augmentation_method = transforms.Compose([transforms.ToPILImage(), transforms.RandomPosterize(bits=2), transforms.ToTensor()])
   elif augmentation_name == "rand_augment":
