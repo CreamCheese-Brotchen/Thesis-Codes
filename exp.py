@@ -100,7 +100,7 @@ if __name__ == '__main__':
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
 
-  resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1, bias=False)
+  resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
   
   resnet_boardComment, vae_boardComment = boardWriter_generator(args)
   print('RESNET board comment: ', resnet_boardComment)
