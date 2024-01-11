@@ -196,6 +196,9 @@ def boardWriter_generator(args):
     resnet_comment.append(f"currentEpo_candidate")
   else:
     resnet_comment.append(f"{ args.k_epoch_sampleSelection}Epo_candidate")
+  
+  if args.norm:
+    resnet_comment.append(f"norm")
 
   resnet_comment.extend([
     f"{ args.entropy_threshold}ent",
@@ -203,7 +206,8 @@ def boardWriter_generator(args):
     f"{ args.candidate_start_epoch}se",
     f"lr_{ args.lr}",
     f"l2_{ args.l2}",
-    f"{ args.batch_size}bs",])
+    f"{ args.batch_size}bs",
+    ])
 
   vae_comment = []
   if args.augmentation_type == 'vae':
