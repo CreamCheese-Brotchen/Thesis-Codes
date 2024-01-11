@@ -95,7 +95,7 @@ if __name__ == '__main__':
     # for param in resnet.parameters():
     #   param.requires_grad = False
     resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
-    resnet.maxpool = torch.nn.Identity()
+    # resnet.maxpool = torch.nn.Identity()
   else:
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
