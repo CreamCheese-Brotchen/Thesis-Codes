@@ -51,6 +51,7 @@ if __name__ == '__main__':
   parser.add_argument('--pretrained_flag', action='store_true', help='Use pretrained model')
   parser.add_argument('--addComment', default=None, help='Aditional comment to tensorboard')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
+  parser.add_argument('--lr_scheduler_flag', action='store_true', help='Use lr scheduler')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", 'simple_crop', 'simple_centerCrop', "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
@@ -142,22 +143,27 @@ if __name__ == '__main__':
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
 
   # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
-  if args.customLr_flag:
+  if args.customLr_flag and args.lr_scheduler_flag==False:
     suggested_lr = args.lr
     print("using given custom_lr: ", suggested_lr)
+  elif args.lr_scheduler_flag:
+    suggested_lr = args.lr
   else:
-    if args.accumulation_steps:
-      lrSearch_epoch = 100
-      lr_trainerSteps = args.accumulation_steps
-    else:
-      lr_trainerSteps = 1
-      lrSearch_epoch = 100
-    lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
-    lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
-    suggested_lr = lr_finder.search()
-    if suggested_lr == None:
-      suggested_lr = args.lr
-    print("using trainer.suggested lr: ", suggested_lr)
+    suggested_lr = 0.0001
+    
+  # else:
+  #   if args.accumulation_steps:
+  #     lrSearch_epoch = 100
+  #     lr_trainerSteps = args.accumulation_steps
+  #   else:
+  #     lr_trainerSteps = 1
+  #     lrSearch_epoch = 100
+  #   lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
+  #   lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
+  #   suggested_lr = lr_finder.search()
+  #   if suggested_lr == None:
+  #     suggested_lr = args.lr
+  #   print("using trainer.suggested lr: ", suggested_lr)
   
 
   ############################
@@ -324,6 +330,7 @@ if __name__ == '__main__':
                                   residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
                                   denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
                                   in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
+                                  lr_scheduler_flag = args.lr_scheduler_flag,
                                 )
   else:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
@@ -337,6 +344,7 @@ if __name__ == '__main__':
                                     residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
                                     denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
                                     in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
+                                    lr_scheduler_flag = args.lr_scheduler_flag,
                                   )
   
   model_trainer.train()

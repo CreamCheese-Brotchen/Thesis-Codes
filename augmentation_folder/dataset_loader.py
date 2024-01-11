@@ -199,6 +199,8 @@ def boardWriter_generator(args):
   
   if args.norm:
     resnet_comment.append(f"norm")
+  if args.lr_scheduler_flag:
+    resnet_comment.append(f"lrScheduler")
 
   resnet_comment.extend([
     f"{ args.entropy_threshold}ent",

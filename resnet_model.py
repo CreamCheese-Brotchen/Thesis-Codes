@@ -19,6 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 import seaborn as sns
 import matplotlib
 from more_itertools import flatten
+from torch.optim import lr_scheduler
 import itertools
 from collections import Counter
 import copy
@@ -44,7 +45,8 @@ class Resnet_trainer():
               augmente_epochs_list=None,
               residual_connection_flag=False, residual_connection_method=None,   # resConnect/Denoise for vae
               denoise_flag=False, denoise_model=None,                            # resConnect/Denoise for vae
-              in_denoiseRecons_lossFlag=False):                                     # built-in denoisers
+              in_denoiseRecons_lossFlag=False,
+              lr_scheduler_flag = False):                                     # built-in denoisers
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -56,6 +58,9 @@ class Resnet_trainer():
     self.individual_loss_fn = individual_loss_fn
     self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # tested for transfer-learning, torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
+    self.lr_scheduler_flag = lr_scheduler_flag
+    if self.lr_scheduler_flag: 
+      self.lr_Scheduler = lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10)
 
     self.augmentation_type = augmentation_type
     self.augmentation_transforms = augmentation_transforms
@@ -273,6 +278,9 @@ class Resnet_trainer():
           self.optimizer.step()
           # self.optimizer.zero_grad()
 
+        if self.lr_scheduler_flag:
+          self.lr_Scheduler.step(epoch + batch_id / len(train_dataloader))
+
         # built_denoiser, only starts after 10th epoch
         if epoch >= 10:
           if self.augmentation_type == 'builtIn_denoiser':
@@ -462,4 +470,7 @@ class Resnet_trainer():
       denoiserLoss_metric.reset()
       resnet_vae_metric.reset()
 
+    if self.lr_scheduler_flag:
+      print('last lr_scheluder', self.lr_Scheduler.get_last_lr())
     writer.close()
+    
