@@ -60,7 +60,7 @@ class Resnet_trainer():
     self.tensorboard_comment = tensorboard_comment
     self.lr_scheduler_flag = lr_scheduler_flag
     if self.lr_scheduler_flag: 
-      self.lr_Scheduler = lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10)
+      self.lr_Scheduler = lr_scheduler.ExponentialLR(self.optimizer, gamma=0.9)
 
     self.augmentation_type = augmentation_type
     self.augmentation_transforms = augmentation_transforms
@@ -278,8 +278,6 @@ class Resnet_trainer():
           self.optimizer.step()
           # self.optimizer.zero_grad()
 
-        if self.lr_scheduler_flag:
-          self.lr_Scheduler.step(epoch + batch_id / len(train_dataloader))
 
         # built_denoiser, only starts after 10th epoch
         if epoch >= 10:
@@ -308,6 +306,8 @@ class Resnet_trainer():
               resnet_vae_metric.update(vae_resnet_loss.item())
               
 
+      if self.lr_scheduler_flag:
+        self.lr_Scheduler.step()
       #################################################################
       # End of iteration -- running over once all data in the dataloader
       #################################################################
