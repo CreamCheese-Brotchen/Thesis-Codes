@@ -100,18 +100,10 @@ if __name__ == '__main__':
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
 
-  if args.dataset in ['MNIST', 'CIFAR10']:
-    resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-    resnet.maxpool = torch.nn.Identity()
-  elif args.dataset in ['CINIC10']: 
-    resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1, bias=False)
-    resnet.maxpool = torch.nn.Identity()
-    
-  
   resnet_boardComment, vae_boardComment = boardWriter_generator(args)
   print('RESNET board comment: ', resnet_boardComment)
   ############################
-  ## dataset loader
+  ## dataset loader and define kernel_size
   ###########################
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CINIC10']:
     mean = (0.47889522, 0.47227842, 0.43047404)
@@ -126,16 +118,21 @@ if __name__ == '__main__':
         transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
         transforms.transforms.ToTensor(),
         ])
+    
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-    resnet.maxpool = torch.nn.Identity()
+    if args.dataset in ['MNIST', 'CIFAR10']:
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+      resnet.maxpool = torch.nn.Identity()
+    elif args.dataset in ['CINIC10']: 
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1, bias=False)
+      resnet.maxpool = torch.nn.Identity()
   else:
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
     transforms_largSize= transforms.Compose([
-    transforms.Resize((256, 256),interpolation=InterpolationMode.BICUBIC),
-    transforms.transforms.ToTensor(),
-    transforms.Normalize(mean, std),])
+      transforms.Resize((256, 256),interpolation=InterpolationMode.BICUBIC),
+      transforms.transforms.ToTensor(),
+      transforms.Normalize(mean, std),])
     dataset_loaders = create_dataloaders(transforms_largSize, transforms_largSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=3, bias=False)
 
