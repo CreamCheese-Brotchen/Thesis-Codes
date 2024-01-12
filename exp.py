@@ -122,7 +122,7 @@ if __name__ == '__main__':
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
     if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
       resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-      resnet.maxpool = torch.nn.Identity()
+      # resnet.maxpool = torch.nn.Identity()
     elif args.dataset in ['CINIC10']: 
       resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
       resnet.maxpool = torch.nn.Identity()
