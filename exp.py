@@ -124,7 +124,7 @@ if __name__ == '__main__':
       resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
       resnet.maxpool = torch.nn.Identity()
     elif args.dataset in ['CINIC10']: 
-      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1, bias=False)
+      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
       # resnet.maxpool = torch.nn.Identity()
   else:
     mean = (0.485, 0.456, 0.406)
