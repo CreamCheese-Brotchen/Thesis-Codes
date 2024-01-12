@@ -16,7 +16,7 @@ from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 import os
-
+from torch.optim import lr_scheduler
 
 
 class VAE(nn.Module):
@@ -236,6 +236,7 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     writer = SummaryWriter(comment=tensorboard_comment)        
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    lr_Scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
     model.to(device)
     model.train()
@@ -254,7 +255,11 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
             total_loss.backward()
             optimizer.step()
         
-        ###### 
+        lr_Scheduler.step()
+
+        ############
+        # tensorboard
+        ############
         original_img = x[-1].unsqueeze(0)
         reconstructed_img = x_reconstructed[-1].unsqueeze(0).detach()
         stacked_images = torch.cat([original_img, reconstructed_img])

@@ -73,7 +73,8 @@ class Resnet_trainer():
     self.denoise_model = denoise_model
     # builtin_denoise
     self.builtin_denoise_model = DenoisingModel()
-    self.denoiser_optimizer = torch.optim.Adam(self.builtin_denoise_model.parameters(), lr=0.0001)
+    self.denoiser_optimizer = torch.optim.Adam(self.builtin_denoise_model.parameters(), lr=self.lr)
+    self.indenoiser_lrSceduler = lr_scheduler.ExponentialLR(self.denoiser_optimizer, gamma=0.9)
     self.denoiser_loss = torch.nn.CrossEntropyLoss()
     self.in_denoiseRecons_lossFlag = in_denoiseRecons_lossFlag
     # basic params
@@ -89,7 +90,8 @@ class Resnet_trainer():
       image_size = imgs[0].size()
       print(f"image_size {image_size[1]}, num_channel {image_size[0]}"	)
       self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=1024, loss_func=None).to(self.device)
-      self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=0.0001)
+      self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=self.lr)
+      self.inVae_lrScheduler = lr_scheduler.ExponentialLR(self.resnet_vae_optimizer, gamma=0.9)
      
   def train_builtIn_denoiser(self, curentIter, currentIter_resnetLoss, img):
     # print(f"currentIter_loss {currentIter_loss}")
@@ -305,9 +307,14 @@ class Resnet_trainer():
               self.resnet_vae_optimizer.step()
               resnet_vae_metric.update(vae_resnet_loss.item())
               
+              
 
       if self.lr_scheduler_flag:
         self.lr_Scheduler.step()
+        if self.augmentation_type == 'builtIn_vae' and (epoch >= 10):
+          self.inVae_lrScheduler.step() 
+        elif self.augmentation_type == 'builtIn_denoiser' and (epoch >= 10):    
+          self.indenoiser_lrSceduler.step()
       #################################################################
       # End of iteration -- running over once all data in the dataloader
       #################################################################

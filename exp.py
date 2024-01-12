@@ -23,6 +23,7 @@ from collections import Counter
 from pytorch_lightning import LightningModule, Trainer
 import torch.nn as nn
 import PIL
+from torch.optim import lr_scheduler
 from torchvision.transforms import InterpolationMode
 from torch.nn import functional as F
 # from memory_profiler import profile
@@ -120,12 +121,12 @@ if __name__ == '__main__':
         ])
     
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
-      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-      # resnet.maxpool = torch.nn.Identity()
-    elif args.dataset in ['CINIC10']: 
+    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN', 'CINIC10']:
       resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
       resnet.maxpool = torch.nn.Identity()
+    # elif args.dataset in ['CINIC10']: 
+    #   resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+    #   resnet.maxpool = torch.nn.Identity()
   else:
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
@@ -147,29 +148,16 @@ if __name__ == '__main__':
     suggested_lr = args.lr
   else:
     suggested_lr = 0.0001
-    
-  # else:
-  #   if args.accumulation_steps:
-  #     lrSearch_epoch = 100
-  #     lr_trainerSteps = args.accumulation_steps
-  #   else:
-  #     lr_trainerSteps = 1
-  #     lrSearch_epoch = 100
-  #   lr_trainerParams = {'max_epochs': lrSearch_epoch, "accumulate_grad_batches": lr_trainerSteps, "accelerator": "auto", "strategy": "auto", "devices": "auto", "enable_progress_bar": False}
-  #   lr_finder = lrSearch(datasetloader=dataset_loaders['train'], model=resnet, trainer_params=lr_trainerParams)
-  #   suggested_lr = lr_finder.search()
-  #   if suggested_lr == None:
-  #     suggested_lr = args.lr
-  #   print("using trainer.suggested lr: ", suggested_lr)
-  
 
+  
   ############################
   # denoise model
   ###########################
   if args.denoise_flag or args.augmentation_type == 'navie_denoiser':
     print('using denoise model, starts to train the denoise model')
     train_denoiseModel = DenoisingModel()
-    denoiser_optimizer = torch.optim.Adam(train_denoiseModel.parameters(), lr=0.0001)
+    denoiser_optimizer = torch.optim.Adam(train_denoiseModel.parameters(), lr=args.lr)
+    denoiser_lrScheduler = lr_scheduler.ExponentialLR(denoiser_optimizer, gamma=0.9)
     for num in range(args.run_epochs):
       for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['train']):
         denoiser_optimizer.zero_grad()
@@ -179,6 +167,7 @@ if __name__ == '__main__':
         denoiser_optimizer.step()
       if (num+1) in [20, 40, 60, 80, 100]:
         print(f'epoch: {num+1}, loss: {denoiser_loss.item()}')
+      denoiser_lrScheduler.step()
     resnet_trainedDenoiser = train_denoiseModel
   else:
     resnet_trainedDenoiser = None
@@ -217,7 +206,7 @@ if __name__ == '__main__':
       vae_trainEpochs = args.vae_trainEpochs
     train_model(vae_model, dataset_loaders,
             epochs=args.vae_trainEpochs,
-            lr=args.vae_lr,
+            lr=args.lr,
             weight_decay=args.vae_weightDecay,
             tensorboard_comment = vae_boardComment,
             )
