@@ -255,7 +255,7 @@ def train_model(model, data_loader, epochs=10, lr=3e-04, weight_decay=1e-5, tens
             total_loss.backward()
             optimizer.step()
         
-        lr_Scheduler.step()
+        # lr_Scheduler.step()
 
         ############
         # tensorboard

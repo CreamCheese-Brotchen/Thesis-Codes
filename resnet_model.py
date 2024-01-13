@@ -211,9 +211,9 @@ class Resnet_trainer():
     # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
 
     # competely replace the data with augmented data -- create new dataset
-    train_dataloader = self.dataloader['train']
+    # train_dataloader = self.dataloader['train']
     train_dataloader = AugmentedDataset2(
-        dataset = train_dataloader.dataset,
+        dataset = self.dataloader['train'].dataset,
         target_idx_list = [],
         augmentation_type = self.augmentation_type,
         augmentation_transforms = self.augmentation_transforms,
