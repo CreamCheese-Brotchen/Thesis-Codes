@@ -248,8 +248,8 @@ class Resnet_trainer():
       # history_meanLoss_candidates = list()
 
       self.model.train()  
-      # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
-      for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
         self.model.train()  
         self.optimizer.zero_grad()
         img_tensor = Variable(img_tensor).to(device)
@@ -477,7 +477,5 @@ class Resnet_trainer():
       denoiserLoss_metric.reset()
       resnet_vae_metric.reset()
 
-    if self.lr_scheduler_flag:
-      print('last lr_scheluder', self.lr_Scheduler.get_last_lr())
     writer.close()
     
