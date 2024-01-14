@@ -382,7 +382,6 @@ class Resnet_trainer():
               if self.AugmentedDataset_func == 1:
               # remain the same augmented dataset for the next 10 epochs
                 augmented_dataset.augmentation_type = self.augmentation_type
-                print("测试", self.augmentation_type, '测试2', augmented_dataset.augmentation_type )
                 augmented_dataset.target_idx_list = list(augmemtation_id)
                 augmented_dataset.tensorboard_epoch = epoch+1
                 augmented_dataset.tf_writer = writer
