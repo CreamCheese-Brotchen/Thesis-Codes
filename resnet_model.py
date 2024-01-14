@@ -46,7 +46,9 @@ class Resnet_trainer():
               residual_connection_flag=False, residual_connection_method=None,   # resConnect/Denoise for vae
               denoise_flag=False, denoise_model=None,                            # resConnect/Denoise for vae
               in_denoiseRecons_lossFlag=False,
-              lr_scheduler_flag = False):                                     # built-in denoisers
+              lr_scheduler_flag = False,
+              AugmentedDataset_func=1,
+              ):                                     # built-in denoisers
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
     self.run_epochs = run_epochs
@@ -66,6 +68,8 @@ class Resnet_trainer():
     self.augmentation_transforms = augmentation_transforms
     self.augmentation_model = augmentation_model
     self.model_transforms = model_transforms
+    # replace the original as new dataset: 2 or temporily dataset1
+    self.AugmentedDataset_func = AugmentedDataset_func 
     # resConnect/Denoise for vae
     self.residual_connection_flag=residual_connection_flag
     self.residual_connection_method=residual_connection_method
@@ -197,32 +201,33 @@ class Resnet_trainer():
     denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
     resnet_vae_metric = torchmetrics.MeanMetric().to(device)
 
-    # define the training dataset -- temporartily replace the data with augmented data
-    # augmented_dataset = AugmentedDataset(
-    #     dataset = self.dataloader['train'].dataset,
-    #     target_idx_list = [],
-    #     augmentation_type = self.augmentation_type,
-    #     augmentation_transforms = self.augmentation_transforms,
-    #     model = self.augmentation_model,
-    #     model_transforms = self.model_transforms,
-    #     tensorboard_epoch = [],  # NEW
-    #     tf_writer = [],
-    #     )
-    # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
-
-    # competely replace the data with augmented data -- create new dataset
-    # train_dataloader = self.dataloader['train']
-    train_dataloader = AugmentedDataset2(
-        dataset = self.dataloader['train'].dataset,
-        target_idx_list = [],
-        augmentation_type = self.augmentation_type,
-        augmentation_transforms = self.augmentation_transforms,
-        model = self.augmentation_model,
-        model_transforms = self.model_transforms,
-        tensorboard_epoch = [],  # NEW
-        tf_writer = [],
-    )
-    train_dataloader = torch.utils.data.DataLoader(train_dataloader, batch_size=self.batch_size, shuffle=True)
+    if self.AugmentedDataset_func == 1:
+      # define the training dataset -- temporartily replace the data with augmented data
+      augmented_dataset = AugmentedDataset(
+          dataset = self.dataloader['train'].dataset,
+          target_idx_list = [],
+          augmentation_type = self.augmentation_type,
+          augmentation_transforms = self.augmentation_transforms,
+          model = self.augmentation_model,
+          model_transforms = self.model_transforms,
+          tensorboard_epoch = [],  # NEW
+          tf_writer = [],
+          )
+      train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+    elif self.AugmentedDataset_func == 2:
+      # competely replace the data with augmented data -- create new dataset
+      train_dataloader = self.dataloader['train']
+      # augmented_dataset = AugmentedDataset2(
+      #     dataset = self.dataloader['train'].dataset,
+      #     target_idx_list = [],
+      #     augmentation_type = self.augmentation_type,
+      #     augmentation_transforms = self.augmentation_transforms,
+      #     model = self.augmentation_model,
+      #     model_transforms = self.model_transforms,
+      #     tensorboard_epoch = [],  # NEW
+      #     tf_writer = [],
+      # )
+      # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
 
     # tensorboard
     writer = SummaryWriter(comment=self.tensorboard_comment)
@@ -248,8 +253,8 @@ class Resnet_trainer():
       # history_meanLoss_candidates = list()
 
       self.model.train()  
-      # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
-      for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
+      # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
         self.model.train()  
         self.optimizer.zero_grad()
         img_tensor = Variable(img_tensor).to(device)
@@ -374,22 +379,46 @@ class Resnet_trainer():
 
             if list(augmemtation_id):
               print(f"did augmentation at {epoch+1} epoch") 
+              if self.AugmentedDataset_func == 1:
               # remain the same augmented dataset for the next 10 epochs
-              # augmented_dataset.augmentation_type = self.augmentation_type
-              # augmented_dataset.target_idx_list = list(augmemtation_id)
-              # augmented_dataset.tensorboard_epoch = epoch+1
-              # augmented_dataset.tf_writer = writer
-              # augmented_dataset.residual_connection_flag=self.residual_connection_flag
-              # augmented_dataset.residual_connection_method=self.residual_connection_method
-              # # denoiser for vae model
-              # augmented_dataset.denoise_flag=self.denoise_flag
-              # augmented_dataset.denoise_model=self.denoise_model
-              # # built-in denoiser
-              # augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
-              # augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
-              # # built-in vae
-              # augmented_dataset.builtIn_vae_model = self.builtin_denoise_model
-              
+                augmented_dataset.augmentation_type = self.augmentation_type
+                print("测试", self.augmentation_type, '测试2', augmented_dataset.augmentation_type )
+                augmented_dataset.target_idx_list = list(augmemtation_id)
+                augmented_dataset.tensorboard_epoch = epoch+1
+                augmented_dataset.tf_writer = writer
+                augmented_dataset.residual_connection_flag=self.residual_connection_flag
+                augmented_dataset.residual_connection_method=self.residual_connection_method
+                # denoiser for vae model
+                augmented_dataset.denoise_flag=self.denoise_flag
+                augmented_dataset.denoise_model=self.denoise_model
+                # built-in denoiser
+                augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
+                augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
+                # built-in vae
+                augmented_dataset.builtIn_vae_model = self.builtin_denoise_model
+              ######################################################################################
+              #### augMethod2 
+              ######################################################################################
+              elif self.AugmentedDataset_func == 2:
+                augmented_dataset = AugmentedDataset2(
+                  dataset = train_dataloader.dataset,
+                  target_idx_list = list(augmemtation_id),
+                  augmentation_type = self.augmentation_type,
+                  augmentation_transforms = self.augmentation_transforms,
+                  model = self.augmentation_model,
+                  model_transforms = self.model_transforms,
+                  tensorboard_epoch = epoch+1,  
+                  tf_writer = writer,
+                  residual_connection_flag = self.residual_connection_flag,
+                  residual_connection_method=self.residual_connection_method,
+                  denoise_flag=self.denoise_flag,
+                  denoise_model=self.denoise_model,
+                  builtIn_denoise_model = self.builtin_denoise_model, 
+                  in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
+                  builtIn_vae_model = self.builtin_denoise_model,
+                )
+                train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+                
               # to visualize the common id candidates' performance
               # if self.random_candidateSelection:
               #   pass
@@ -405,25 +434,10 @@ class Resnet_trainer():
               #     common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
               #     print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
               #     writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
-  
-              train_dataloader = AugmentedDataset2(
-                dataset = train_dataloader.dataset,
-                target_idx_list = list(augmemtation_id),
-                augmentation_type = self.augmentation_type,
-                augmentation_transforms = self.augmentation_transforms,
-                model = self.augmentation_model,
-                model_transforms = self.model_transforms,
-                tensorboard_epoch = epoch+1,  
-                tf_writer = writer,
-                residual_connection_flag = self.residual_connection_flag,
-                residual_connection_method=self.residual_connection_method,
-                denoise_flag=self.denoise_flag,
-                denoise_model=self.denoise_model,
-                builtIn_denoise_model = self.builtin_denoise_model, 
-                in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
-                builtIn_vae_model = self.builtin_denoise_model,
-              )
-              train_dataloader = torch.utils.data.DataLoader(train_dataloader, batch_size=self.batch_size, shuffle=True)
+              
+
+              
+              
             # if list(augmemtation_id) is empty, no hard samples & no augmentation
             else:  
               print(f'no augmentation at {epoch} epoch as there are no hard samples')
@@ -478,4 +492,3 @@ class Resnet_trainer():
       resnet_vae_metric.reset()
 
     writer.close()
-    

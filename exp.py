@@ -61,6 +61,7 @@ if __name__ == '__main__':
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
+  parser.add_argument('--AugmentedDataset_func', type=int, default=1, help='Choose the way to replace the original image with augmented img temporily or set')
 
 
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
@@ -317,6 +318,7 @@ if __name__ == '__main__':
                                   denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
                                   in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                   lr_scheduler_flag = args.lr_scheduler_flag,
+                                  AugmentedDataset_func = args.AugmentedDataset_func,
                                 )
   else:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
@@ -331,6 +333,7 @@ if __name__ == '__main__':
                                     denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
                                     in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                     lr_scheduler_flag = args.lr_scheduler_flag,
+                                    AugmentedDataset_func = args.AugmentedDataset_func,
                                   )
   
   model_trainer.train()

@@ -209,6 +209,7 @@ def boardWriter_generator(args):
     f"lr_{ args.lr}",
     f"l2_{ args.l2}",
     f"{ args.batch_size}bs",
+    f"augDataloader_method{ args.AugmentedDataset_func}",
     ])
 
   vae_comment = []
