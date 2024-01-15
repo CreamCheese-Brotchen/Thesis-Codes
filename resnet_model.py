@@ -253,67 +253,135 @@ class Resnet_trainer():
       # history_meanLoss_candidates = list()
 
       self.model.train()  
-      for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):  # changes in train_dataloader
-      # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
-        self.model.train()  
-        self.optimizer.zero_grad()
-        img_tensor = Variable(img_tensor).to(device)
-        label_tensor = Variable(label_tensor).to(device)
-        output_logits = self.model(img_tensor)
-        
-        output_probs = torch.nn.Softmax(dim=1)(output_logits)
-        loss_val = self.loss_fn(output_probs, label_tensor)
-        loss_individual = self.individual_loss_fn(output_probs, label_tensor)
+      if not self.augmentation_type:
+        # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+        for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
+          self.model.train()  
+          self.optimizer.zero_grad()
+          img_tensor = Variable(img_tensor).to(device)
+          label_tensor = Variable(label_tensor).to(device)
+          output_logits = self.model(img_tensor)
+          
+          output_probs = torch.nn.Softmax(dim=1)(output_logits)
+          loss_val = self.loss_fn(output_probs, label_tensor)
+          loss_individual = self.individual_loss_fn(output_probs, label_tensor)
 
-        # update the loss&accuracy during training
-        avg_loss_metric_train.update(loss_val.item())
-        accuracy_metric_train.update(output_probs, label_tensor)
-        # update the entropy of samples cross iterations
-        entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
-        id_list.append(id)                                                  # record the id order of samples at this iter
-        all_individualLoss_list.append(loss_individual)
+          # update the loss&accuracy during training
+          avg_loss_metric_train.update(loss_val.item())
+          accuracy_metric_train.update(output_probs, label_tensor)
+          # update the entropy of samples cross iterations
+          entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
+          id_list.append(id)                                                  # record the id order of samples at this iter
+          all_individualLoss_list.append(loss_individual)
 
-        self.optimizer.zero_grad()
-        if self.accumulation_steps:
-          loss_val = loss_val / self.accumulation_steps
-          loss_val.backward()
-          if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
-              self.optimizer.step()
-              # self.optimizer.zero_grad()
-        else:
-          loss_val.backward()
-          self.optimizer.step()
-          # self.optimizer.zero_grad()
+          self.optimizer.zero_grad()
+          if self.accumulation_steps:
+            loss_val = loss_val / self.accumulation_steps
+            loss_val.backward()
+            if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
+                self.optimizer.step()
+                # self.optimizer.zero_grad()
+          else:
+            loss_val.backward()
+            self.optimizer.step()
+            # self.optimizer.zero_grad()
 
+          # test the dataset with different augmentation_methods
+          if any(id) ==1:
+            indics = [i for i, x in enumerate(id) if x == 1]
+            img_record = img_tensor[indics]
+            writer.add_images('测试变化213', img_record, epoch+1)
 
-        # built_denoiser, only starts after 10th epoch
-        if epoch >= 10:
-          if self.augmentation_type == 'builtIn_denoiser':
-              denoiser_output = self.builtin_denoise_model(img_tensor)
-              self.model.eval()
-              denoiser_resnet_output = self.model(denoiser_output)
-              denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
-              if self.in_denoiseRecons_lossFlag:
-                denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
-              self.denoiser_optimizer.zero_grad()
-              denoiser_loss.backward()
-              self.denoiser_optimizer.step()
-              denoiserLoss_metric.update(denoiser_loss.item())
-          if self.augmentation_type == 'builtIn_vae':
-              (mean, logvar), vae_output = self.reset_vae(img_tensor)
-              self.model.eval()
-              vae_resnet_output = self.model(vae_output)
-              vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
-              if self.in_denoiseRecons_lossFlag:
-                vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
-                vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
-              self.resnet_vae_optimizer.zero_grad()
-              vae_resnet_loss.backward()
-              self.resnet_vae_optimizer.step()
-              resnet_vae_metric.update(vae_resnet_loss.item())
+          # built_denoiser, only starts after 10th epoch
+          if epoch >= 10:
+            if self.augmentation_type == 'builtIn_denoiser':
+                denoiser_output = self.builtin_denoise_model(img_tensor)
+                self.model.eval()
+                denoiser_resnet_output = self.model(denoiser_output)
+                denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
+                if self.in_denoiseRecons_lossFlag:
+                  denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+                self.denoiser_optimizer.zero_grad()
+                denoiser_loss.backward()
+                self.denoiser_optimizer.step()
+                denoiserLoss_metric.update(denoiser_loss.item())
+            if self.augmentation_type == 'builtIn_vae':
+                (mean, logvar), vae_output = self.reset_vae(img_tensor)
+                self.model.eval()
+                vae_resnet_output = self.model(vae_output)
+                vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
+                if self.in_denoiseRecons_lossFlag:
+                  vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
+                  vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
+                self.resnet_vae_optimizer.zero_grad()
+                vae_resnet_loss.backward()
+                self.resnet_vae_optimizer.step()
+                resnet_vae_metric.update(vae_resnet_loss.item())
+      else:              
+        for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
+          self.model.train()  
+          self.optimizer.zero_grad()
+          img_tensor = Variable(img_tensor).to(device)
+          label_tensor = Variable(label_tensor).to(device)
+          output_logits = self.model(img_tensor)
+          
+          output_probs = torch.nn.Softmax(dim=1)(output_logits)
+          loss_val = self.loss_fn(output_probs, label_tensor)
+          loss_individual = self.individual_loss_fn(output_probs, label_tensor)
+
+          # update the loss&accuracy during training
+          avg_loss_metric_train.update(loss_val.item())
+          accuracy_metric_train.update(output_probs, label_tensor)
+          # update the entropy of samples cross iterations
+          entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
+          id_list.append(id)                                                  # record the id order of samples at this iter
+          all_individualLoss_list.append(loss_individual)
+
+          self.optimizer.zero_grad()
+          if self.accumulation_steps:
+            loss_val = loss_val / self.accumulation_steps
+            loss_val.backward()
+            if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
+                self.optimizer.step()
+                # self.optimizer.zero_grad()
+          else:
+            loss_val.backward()
+            self.optimizer.step()
+            # self.optimizer.zero_grad()
+
+          # test the dataset with different augmentation_methods
+          if any(id) ==1:
+            indics = [i for i, x in enumerate(id) if x == 1]
+            img_record = img_tensor[indics]
+            writer.add_images('测试变化123', img_record, epoch+1)
+
+          # built_denoiser, only starts after 10th epoch
+          if epoch >= 10:
+            if self.augmentation_type == 'builtIn_denoiser':
+                denoiser_output = self.builtin_denoise_model(img_tensor)
+                self.model.eval()
+                denoiser_resnet_output = self.model(denoiser_output)
+                denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
+                if self.in_denoiseRecons_lossFlag:
+                  denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+                self.denoiser_optimizer.zero_grad()
+                denoiser_loss.backward()
+                self.denoiser_optimizer.step()
+                denoiserLoss_metric.update(denoiser_loss.item())
+            if self.augmentation_type == 'builtIn_vae':
+                (mean, logvar), vae_output = self.reset_vae(img_tensor)
+                self.model.eval()
+                vae_resnet_output = self.model(vae_output)
+                vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
+                if self.in_denoiseRecons_lossFlag:
+                  vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
+                  vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
+                self.resnet_vae_optimizer.zero_grad()
+                vae_resnet_loss.backward()
+                self.resnet_vae_optimizer.step()
+                resnet_vae_metric.update(vae_resnet_loss.item())
+
               
-              
-
       if self.lr_scheduler_flag:
         self.lr_Scheduler.step()
         if self.augmentation_type == 'builtIn_vae' and (epoch >= 10):
@@ -351,14 +419,13 @@ class Resnet_trainer():
       
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag
-          # design the aug_epo list
+          # generate/design the aug_epo list
           if self.run_epochs > 20:
             if self.augmente_epochs_list is None:     # generate an epoch_list for augmentation
               self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
           else:
             self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
-          
-            
+                     
           # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
             if self.random_candidateSelection:
@@ -435,8 +502,7 @@ class Resnet_trainer():
               #     writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
               
 
-              
-              
+                          
             # if list(augmemtation_id) is empty, no hard samples & no augmentation
             else:  
               print(f'no augmentation at {epoch} epoch as there are no hard samples')

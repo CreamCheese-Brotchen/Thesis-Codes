@@ -184,7 +184,6 @@ class AugmentedDataset2(Dataset):
         data, target, idx = self.dataset[index]
 
         if idx in self.target_idx_list:
-        # if idx == 0:
           if self.augmentation_type == 'vae':
             original_data = data
             data = self.model.get_singleImg(data.to(self.model.device)).squeeze(0).to(original_data.device)  # [3, 32, 32], get the augmented img from the model

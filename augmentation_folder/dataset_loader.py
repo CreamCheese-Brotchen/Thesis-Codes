@@ -215,6 +215,7 @@ def boardWriter_generator(args):
   vae_comment = []
   if args.augmentation_type == 'vae':
     vae_comment.extend([
+      f"{args.dataset}",
       f"{args.augmentation_type}",
       f" Z_{args.vae_zSize}",
       f" K_{args.vae_kernelNum}"
