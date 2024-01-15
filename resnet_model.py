@@ -26,7 +26,7 @@ import copy
 from pytorch_lightning import LightningModule, Trainer
 
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
-from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel
+from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel, create_augmented_dataloader
 from VAE_folder.VAE_model import VAE
 import random
 # from memory_profiler import profile
@@ -214,7 +214,7 @@ class Resnet_trainer():
           tf_writer = [],
           )
       train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
-    elif self.AugmentedDataset_func == 2:
+    elif self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
       # competely replace the data with augmented data -- create new dataset
       train_dataloader = self.dataloader['train']
       # augmented_dataset = AugmentedDataset2(
@@ -254,8 +254,8 @@ class Resnet_trainer():
 
       self.model.train()  
       if not self.augmentation_type:
-        # for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
-        for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
+        for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
+        # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
           self.model.train()  
           self.optimizer.zero_grad()
           img_tensor = Variable(img_tensor).to(device)
@@ -278,7 +278,7 @@ class Resnet_trainer():
           if self.accumulation_steps:
             loss_val = loss_val / self.accumulation_steps
             loss_val.backward()
-            if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(train_dataloader)):
+            if ((batch_id + 1) % self.accumulation_steps == 0) or (batch_id +1 == len(self.dataloader['train'])):
                 self.optimizer.step()
                 # self.optimizer.zero_grad()
           else:
@@ -287,10 +287,10 @@ class Resnet_trainer():
             # self.optimizer.zero_grad()
 
           # test the dataset with different augmentation_methods
-          if any(id) ==1:
-            indics = [i for i, x in enumerate(id) if x == 1]
-            img_record = img_tensor[indics]
-            writer.add_images('测试变化213', img_record, epoch+1)
+          # if any(id) ==1:
+          #   indics = [i for i, x in enumerate(id) if x == 1]
+          #   img_record = img_tensor[indics]
+          #   writer.add_images('测试变化213', img_record, epoch+1)
 
           # built_denoiser, only starts after 10th epoch
           if epoch >= 10:
@@ -348,13 +348,15 @@ class Resnet_trainer():
             loss_val.backward()
             self.optimizer.step()
             # self.optimizer.zero_grad()
-
-          # test the dataset with different augmentation_methods
-          if any(id) ==1:
-            indics = [i for i, x in enumerate(id) if x == 1]
-            img_record = img_tensor[indics]
-            writer.add_images('测试变化123', img_record, epoch+1)
-
+          
+          # if (epoch in [11,12,13,14,15,16,17,18,19,20])  and (any(id) in list(augmemtation_id)):
+          #   check_id = 0
+          #   # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
+          #   indics = [j for j, x in enumerate(id) if x == check_id]
+          #   img_record = img_tensor[indics]
+          #   writer.add_images('应该是有变化的图', img_record, epoch)
+            
+            
           # built_denoiser, only starts after 10th epoch
           if epoch >= 10:
             if self.augmentation_type == 'builtIn_denoiser':
@@ -363,7 +365,7 @@ class Resnet_trainer():
                 denoiser_resnet_output = self.model(denoiser_output)
                 denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
                 if self.in_denoiseRecons_lossFlag:
-                  denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+                  denoiser_loss = 0.6*denoiser_loss + 0.4*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
                 self.denoiser_optimizer.zero_grad()
                 denoiser_loss.backward()
                 self.denoiser_optimizer.step()
@@ -375,7 +377,7 @@ class Resnet_trainer():
                 vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
                 if self.in_denoiseRecons_lossFlag:
                   vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
-                  vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
+                  vae_resnet_loss = 0.3*vae_resnet_loss + 0.7*vae_loss
                 self.resnet_vae_optimizer.zero_grad()
                 vae_resnet_loss.backward()
                 self.resnet_vae_optimizer.step()
@@ -420,11 +422,14 @@ class Resnet_trainer():
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag
           # generate/design the aug_epo list
-          if self.run_epochs > 20:
-            if self.augmente_epochs_list is None:     # generate an epoch_list for augmentation
+          if (self.run_epochs > 20) and (self.augmente_epochs_list is None): 
               self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
-          else:
+              self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+              print("转变", self.change_augmente_epochs_list)
+          elif (self.run_epochs <= 20) and (self.augmente_epochs_list is None):
             self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
+            self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+            
                      
           # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
@@ -446,6 +451,9 @@ class Resnet_trainer():
 
             if list(augmemtation_id):
               print(f"did augmentation at {epoch+1} epoch") 
+              ######################################################################################
+              #### augMethod1 
+              ######################################################################################
               if self.AugmentedDataset_func == 1:
               # remain the same augmented dataset for the next 10 epochs
                 augmented_dataset.augmentation_type = self.augmentation_type
@@ -466,7 +474,7 @@ class Resnet_trainer():
               #### augMethod2 
               ######################################################################################
               elif self.AugmentedDataset_func == 2:
-                augmented_dataset = AugmentedDataset2(
+                current_dataset = AugmentedDataset2(
                   dataset = train_dataloader.dataset,
                   target_idx_list = list(augmemtation_id),
                   augmentation_type = self.augmentation_type,
@@ -483,8 +491,30 @@ class Resnet_trainer():
                   in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
                   builtIn_vae_model = self.builtin_denoise_model,
                 )
-                train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+                train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
+                # test_dataloader =  torch.utils.data.DataLoader(create_augmented_dataloader(train_dataloader), batch_size=self.batch_size, shuffle=False)
+                # print('测试',len(test_dataloader.dataset[0]))
+                # test_loader = torch.utils.data.DataLoader(CustomDataset(train_dataloader.dataset), batch_size=self.batch_size, shuffle=False)
                 
+              elif self.AugmentedDataset_func == 3:                 
+                current_dataset = AugmentedDataset2(
+                  dataset = self.dataloader['train'].dataset,
+                  target_idx_list = list(augmemtation_id),
+                  augmentation_type = self.augmentation_type,
+                  augmentation_transforms = self.augmentation_transforms,
+                  model = self.augmentation_model,
+                  model_transforms = self.model_transforms,
+                  tensorboard_epoch = epoch+1,  
+                  tf_writer = writer,
+                  residual_connection_flag = self.residual_connection_flag,
+                  residual_connection_method=self.residual_connection_method,
+                  denoise_flag=self.denoise_flag,
+                  denoise_model=self.denoise_model,
+                  builtIn_denoise_model = self.builtin_denoise_model, 
+                  in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
+                  builtIn_vae_model = self.builtin_denoise_model,
+                )
+                train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
               # to visualize the common id candidates' performance
               # if self.random_candidateSelection:
               #   pass
@@ -500,14 +530,36 @@ class Resnet_trainer():
               #     common_id_loss = [loss_allcandidates[i] for i in common_id_indices]
               #     print(f"k_epoch_common_hardSamples mean loss {np.mean(common_id_loss)}")
               #     writer.add_scalar('Mean loss of k_epoch_common_hardSamples', np.mean(common_id_loss), epoch+1)
-              
-
-                          
-            # if list(augmemtation_id) is empty, no hard samples & no augmentation
+                          # if list(augmemtation_id) is empty, no hard samples & no augmentation
+             # if list(augmemtation_id) is empty, no hard samples & no augmentation
             else:  
               print(f'no augmentation at {epoch} epoch as there are no hard samples')
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
+          # elif epoch in self.change_augmente_epochs_list:
+          #   if self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
+              # current_dataset.target_idx_list = []
+              # current_dataset.dataset = test_dataloader.dataset
+              # train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
+              # augmented_dataset = AugmentedDataset2(
+              #     dataset = keep_augmented_dataset.dataset,
+              #     target_idx_list = [],
+              #     augmentation_type = self.augmentation_type,
+              #     augmentation_transforms = self.augmentation_transforms,
+              #     model = self.augmentation_model,
+              #     model_transforms = self.model_transforms,
+              #     tensorboard_epoch = epoch+1,  
+              #     tf_writer = writer,
+              #     residual_connection_flag = self.residual_connection_flag,
+              #     residual_connection_method=self.residual_connection_method,
+              #     denoise_flag=self.denoise_flag,
+              #     denoise_model=self.denoise_model,
+              #     builtIn_denoise_model = self.builtin_denoise_model, 
+              #     in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag, 
+              #     builtIn_vae_model = self.builtin_denoise_model,
+              #   )
+              # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
+              
 
           if (epoch>=self.augmente_epochs_list[0]) and (self.random_candidateSelection is False) and (self.k_epoch_sampleSelection != 0):
             if (self.k_epoch_sampleSelection!=0) and (augmemtation_id):

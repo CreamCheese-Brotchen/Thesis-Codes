@@ -40,7 +40,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
   parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", 'CINIC10', "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-  parser.add_argument('--entropy_threshold', type=float, default=0.5, help='Entropy threshold')
+  parser.add_argument('--entropy_threshold', type=float, default=0.7, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
@@ -61,7 +61,7 @@ if __name__ == '__main__':
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
-  parser.add_argument('--AugmentedDataset_func', type=int, default=1, help='Choose the way to replace the original image with augmented img temporily or set')
+  parser.add_argument('--AugmentedDataset_func', type=int, default=1, choices=(1,2,3), help='Choose the way to replace the original image with augmented img temporily or set')
 
 
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
