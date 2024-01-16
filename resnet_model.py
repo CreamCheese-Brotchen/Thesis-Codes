@@ -187,6 +187,13 @@ class Resnet_trainer():
     train_accuracy = list()
     test_accuracy = list()
 
+    if (self.run_epochs >= 20) and (self.augmente_epochs_list is None): 
+              self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
+              self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+    elif (self.run_epochs < 20) and (self.augmente_epochs_list is None):
+            self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
+            self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     self.model.to(device)
     self.builtin_denoise_model.to(device)
@@ -317,10 +324,22 @@ class Resnet_trainer():
                 vae_resnet_loss.backward()
                 self.resnet_vae_optimizer.step()
                 resnet_vae_metric.update(vae_resnet_loss.item())
-      else:              
+      else:        
+        if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
+          augmented_img_list = torch.tensor([])
+          augmented_label_list = torch.tensor([], dtype=torch.long)
+          augmented_id_list = torch.tensor([], dtype=torch.long)
+        
         for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
           self.model.train()  
           self.optimizer.zero_grad()
+
+          if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
+            # transformed_images.append((img_tensor, label_tensor, id))
+            augmented_img_list = torch.cat([augmented_img_list, img_tensor], dim= 0)
+            augmented_label_list = torch.cat([augmented_label_list, label_tensor], dim= 0)
+            augmented_id_list = torch.cat([augmented_id_list, id], dim= 0)
+            
           img_tensor = Variable(img_tensor).to(device)
           label_tensor = Variable(label_tensor).to(device)
           output_logits = self.model(img_tensor)
@@ -337,6 +356,7 @@ class Resnet_trainer():
           id_list.append(id)                                                  # record the id order of samples at this iter
           all_individualLoss_list.append(loss_individual)
 
+
           self.optimizer.zero_grad()
           if self.accumulation_steps:
             loss_val = loss_val / self.accumulation_steps
@@ -349,12 +369,24 @@ class Resnet_trainer():
             self.optimizer.step()
             # self.optimizer.zero_grad()
           
-          # if (epoch in [11,12,13,14,15,16,17,18,19,20])  and (any(id) in list(augmemtation_id)):
-          #   check_id = 0
+          check_id = 2
+          if (epoch in [11,12,13,14,15] or epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
+            # check_id = id[0]
+            # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
+            indics = [j for j, x in enumerate(id) if x == check_id]
+            # print('indice', indics)
+            img_record = img_tensor[indics]
+            # print(img_tensor[indics])
+            writer.add_images('应该是有变化的图', img_record, epoch)
+          # elif (epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
+          #   # check_id = id[0]
           #   # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
           #   indics = [j for j, x in enumerate(id) if x == check_id]
+          #   # print('indice', indics)
           #   img_record = img_tensor[indics]
-          #   writer.add_images('应该是有变化的图', img_record, epoch)
+          #   # print(img_tensor[indics])
+          #   writer.add_images('应该是有变化的图2', img_record, epoch)
+          
             
             
           # built_denoiser, only starts after 10th epoch
@@ -383,7 +415,16 @@ class Resnet_trainer():
                 self.resnet_vae_optimizer.step()
                 resnet_vae_metric.update(vae_resnet_loss.item())
 
-              
+      ############## end of iter #######################
+      if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
+        # augmented_images, augmented_labels, augmented_ids = zip(*transformed_images)
+        # stacked_images = torch.cat([img_tensor for img_tensor, _, _ in augmented_images], dim=0)
+        
+        # stacked_labels = torch.stack(augmented_labels, dim=0)
+        # stacked_ids = torch.stack(augmented_ids, dim=0)
+        new_augmented_loader = torch.utils.data.TensorDataset(augmented_img_list, augmented_label_list, augmented_id_list)
+        new_augmented_loader = torch.utils.data.DataLoader(new_augmented_loader, batch_size=self.batch_size, shuffle=True)
+
       if self.lr_scheduler_flag:
         self.lr_Scheduler.step()
         if self.augmentation_type == 'builtIn_vae' and (epoch >= 10):
@@ -422,13 +463,12 @@ class Resnet_trainer():
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag
           # generate/design the aug_epo list
-          if (self.run_epochs > 20) and (self.augmente_epochs_list is None): 
-              self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
-              self.change_augmente_epochs_list = self.augmente_epochs_list + 1
-              print("转变", self.change_augmente_epochs_list)
-          elif (self.run_epochs <= 20) and (self.augmente_epochs_list is None):
-            self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
-            self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+          # if (self.run_epochs >= 20) and (self.augmente_epochs_list is None): 
+          #     self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
+          #     self.change_augmente_epochs_list = self.augmente_epochs_list + 1
+          # elif (self.run_epochs < 20) and (self.augmente_epochs_list is None):
+          #   self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
+          #   self.change_augmente_epochs_list = self.augmente_epochs_list + 1
             
                      
           # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
@@ -536,9 +576,10 @@ class Resnet_trainer():
               print(f'no augmentation at {epoch} epoch as there are no hard samples')
 
             # print(f"epoch {epoch} and its target_idx_list is {list(train_dataloader.dataset.target_idx_list)}")
-          # elif epoch in self.change_augmente_epochs_list:
-          #   if self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
-              # current_dataset.target_idx_list = []
+          elif epoch in self.change_augmente_epochs_list:
+            if self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
+              current_dataset.target_idx_list = []
+              train_dataloader = new_augmented_loader
               # current_dataset.dataset = test_dataloader.dataset
               # train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
               # augmented_dataset = AugmentedDataset2(
