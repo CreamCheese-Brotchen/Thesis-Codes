@@ -230,7 +230,7 @@ class AugmentedDataset2(Dataset):
             ])
               data = crop_transform(transforms.ToPILImage()(data))
             elif self.augmentation_type == "simple_centerCrop":
-              crop_size = int(data.size(1)*0.8)
+              crop_size = int(data.size(1)*0.9)
               crop_transform = transforms.Compose([
               transforms.CenterCrop(crop_size),  
               transforms.Resize((data.size(1), data.size(1))),    
