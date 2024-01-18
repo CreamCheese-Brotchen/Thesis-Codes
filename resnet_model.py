@@ -293,37 +293,31 @@ class Resnet_trainer():
             self.optimizer.step()
             # self.optimizer.zero_grad()
 
-          # test the dataset with different augmentation_methods
-          # if any(id) ==1:
-          #   indics = [i for i, x in enumerate(id) if x == 1]
-          #   img_record = img_tensor[indics]
-          #   writer.add_images('测试变化213', img_record, epoch+1)
-
           # built_denoiser, only starts after 10th epoch
-          if epoch >= 10:
-            if self.augmentation_type == 'builtIn_denoiser':
-                denoiser_output = self.builtin_denoise_model(img_tensor)
-                self.model.eval()
-                denoiser_resnet_output = self.model(denoiser_output)
-                denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
-                if self.in_denoiseRecons_lossFlag:
-                  denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
-                self.denoiser_optimizer.zero_grad()
-                denoiser_loss.backward()
-                self.denoiser_optimizer.step()
-                denoiserLoss_metric.update(denoiser_loss.item())
-            if self.augmentation_type == 'builtIn_vae':
-                (mean, logvar), vae_output = self.reset_vae(img_tensor)
-                self.model.eval()
-                vae_resnet_output = self.model(vae_output)
-                vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
-                if self.in_denoiseRecons_lossFlag:
-                  vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
-                  vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
-                self.resnet_vae_optimizer.zero_grad()
-                vae_resnet_loss.backward()
-                self.resnet_vae_optimizer.step()
-                resnet_vae_metric.update(vae_resnet_loss.item())
+          # if epoch >= 10:
+          #   if self.augmentation_type == 'builtIn_denoiser':
+          #       denoiser_output = self.builtin_denoise_model(img_tensor)
+          #       self.model.eval()
+          #       denoiser_resnet_output = self.model(denoiser_output)
+          #       denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
+          #       if self.in_denoiseRecons_lossFlag:
+          #         denoiser_loss = 0.5*denoiser_loss + 0.5*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+          #       self.denoiser_optimizer.zero_grad()
+          #       denoiser_loss.backward()
+          #       self.denoiser_optimizer.step()
+          #       denoiserLoss_metric.update(denoiser_loss.item())
+          #   if self.augmentation_type == 'builtIn_vae':
+          #       (mean, logvar), vae_output = self.reset_vae(img_tensor)
+          #       self.model.eval()
+          #       vae_resnet_output = self.model(vae_output)
+          #       vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
+          #       if self.in_denoiseRecons_lossFlag:
+          #         vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
+          #         vae_resnet_loss = 0.5*vae_resnet_loss + 0.5*vae_loss
+          #       self.resnet_vae_optimizer.zero_grad()
+          #       vae_resnet_loss.backward()
+          #       self.resnet_vae_optimizer.step()
+          #       resnet_vae_metric.update(vae_resnet_loss.item())
       else:        
         if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
           augmented_img_list = torch.tensor([])
@@ -416,7 +410,7 @@ class Resnet_trainer():
                 resnet_vae_metric.update(vae_resnet_loss.item())
 
       ############## end of iter #######################
-      if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
+      if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list and self.augmentation_type:
         # augmented_images, augmented_labels, augmented_ids = zip(*transformed_images)
         # stacked_images = torch.cat([img_tensor for img_tensor, _, _ in augmented_images], dim=0)
         

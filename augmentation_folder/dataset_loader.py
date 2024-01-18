@@ -209,8 +209,12 @@ def boardWriter_generator(args):
     f"lr_{ args.lr}",
     f"l2_{ args.l2}",
     f"{ args.batch_size}bs",
-    f"augDataloader_method{ args.AugmentedDataset_func}",
+    # f"augDataloader_method{ args.AugmentedDataset_func}",
     ])
+  if not args.augmentation_type:
+    pass 
+  else:
+    resnet_comment.append(f"augDataloader_method{ args.args.AugmentedDataset_func}")
 
   vae_comment = []
   if args.augmentation_type == 'vae':
