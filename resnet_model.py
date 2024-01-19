@@ -264,7 +264,7 @@ class Resnet_trainer():
         for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
         # for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
           self.model.train()  
-          self.optimizer.zero_grad()
+          # self.optimizer.zero_grad()
           img_tensor = Variable(img_tensor).to(device)
           label_tensor = Variable(label_tensor).to(device)
           output_logits = self.model(img_tensor)
@@ -422,7 +422,8 @@ class Resnet_trainer():
       if self.lr_scheduler_flag:
         self.lr_Scheduler.step()
         if self.augmentation_type == 'builtIn_vae' and (epoch >= 10):
-          self.inVae_lrScheduler.step() 
+          # self.inVae_lrScheduler.step() 
+          pass
         elif self.augmentation_type == 'builtIn_denoiser' and (epoch >= 10):    
           self.indenoiser_lrSceduler.step()
       #################################################################
