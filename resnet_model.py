@@ -39,7 +39,7 @@ class Resnet_trainer():
               loss_fn, individual_loss_fn, optimizer, tensorboard_comment, 
               augmentation_type=None, augmentation_transforms=None, 
               augmentation_model=None, model_transforms=None, 
-              lr=0.0001, l2=0, batch_size=64, accumulation_steps=2, 
+              lr=0.0001, l2=0, batch_size=64, accumulation_steps=None, 
               k_epoch_sampleSelection=3,
               random_candidateSelection=False,
               augmente_epochs_list=None,
