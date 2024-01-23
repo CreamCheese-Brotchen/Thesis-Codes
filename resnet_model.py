@@ -187,6 +187,7 @@ class Resnet_trainer():
     train_accuracy = list()
     test_accuracy = list()
 
+    # generate the augmente_epochs_list
     if (self.run_epochs >= 20) and (self.augmente_epochs_list is None): 
               self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
               self.change_augmente_epochs_list = self.augmente_epochs_list + 1
@@ -267,11 +268,12 @@ class Resnet_trainer():
           # self.optimizer.zero_grad()
           img_tensor = Variable(img_tensor).to(device)
           label_tensor = Variable(label_tensor).to(device)
-          output_logits = self.model(img_tensor)
           
+          output_logits = self.model(img_tensor)
+                
           output_probs = torch.nn.Softmax(dim=1)(output_logits)
-          loss_val = self.loss_fn(output_probs, label_tensor)
-          loss_individual = self.individual_loss_fn(output_probs, label_tensor)
+          loss_val = self.loss_fn(output_logits, label_tensor)
+          loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
           # update the loss&accuracy during training
           avg_loss_metric_train.update(loss_val.item())
@@ -326,7 +328,6 @@ class Resnet_trainer():
         
         for batch_id, (img_tensor, label_tensor, id) in enumerate(train_dataloader):
           self.model.train()  
-          self.optimizer.zero_grad()
 
           if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list:
             # transformed_images.append((img_tensor, label_tensor, id))
@@ -339,8 +340,8 @@ class Resnet_trainer():
           output_logits = self.model(img_tensor)
           
           output_probs = torch.nn.Softmax(dim=1)(output_logits)
-          loss_val = self.loss_fn(output_probs, label_tensor)
-          loss_individual = self.individual_loss_fn(output_probs, label_tensor)
+          loss_val = self.loss_fn(output_logits, label_tensor)
+          loss_individual = self.individual_loss_fn(output_logits, label_tensor)
 
           # update the loss&accuracy during training
           avg_loss_metric_train.update(loss_val.item())
@@ -363,15 +364,15 @@ class Resnet_trainer():
             self.optimizer.step()
             # self.optimizer.zero_grad()
           
-          check_id = 2
-          if (epoch in [11,12,13,14,15] or epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
+          # check_id = 2
+          # if (epoch in [11,12,13,14,15] or epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
             # check_id = id[0]
             # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
-            indics = [j for j, x in enumerate(id) if x == check_id]
-            # print('indice', indics)
-            img_record = img_tensor[indics]
-            # print(img_tensor[indics])
-            writer.add_images('应该是有变化的图', img_record, epoch)
+            # indics = [j for j, x in enumerate(id) if x == check_id]
+            # # print('indice', indics)
+            # img_record = img_tensor[indics]
+            # # print(img_tensor[indics])
+            # writer.add_images('应该是有变化的图', img_record, epoch)
           # elif (epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
           #   # check_id = id[0]
           #   # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
@@ -384,7 +385,7 @@ class Resnet_trainer():
             
             
           # built_denoiser, only starts after 10th epoch
-          if epoch >= 10:
+          if epoch >= self.start_epoch:
             if self.augmentation_type == 'builtIn_denoiser':
                 denoiser_output = self.builtin_denoise_model(img_tensor)
                 self.model.eval()
@@ -421,16 +422,16 @@ class Resnet_trainer():
 
       if self.lr_scheduler_flag:
         self.lr_Scheduler.step()
-        if self.augmentation_type == 'builtIn_vae' and (epoch >= 10):
+        if self.augmentation_type == 'builtIn_vae' and (epoch >= self.start_epoch):
           # self.inVae_lrScheduler.step() 
           pass
-        elif self.augmentation_type == 'builtIn_denoiser' and (epoch >= 10):    
+        elif self.augmentation_type == 'builtIn_denoiser' and (epoch >= self.start_epoch):    
           self.indenoiser_lrSceduler.step()
       #################################################################
       # End of iteration -- running over once all data in the dataloader
       #################################################################
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
-      if epoch >= 10:
+      if epoch >= self.start_epoch:
         if self.augmentation_type == 'builtIn_denoiser' or (self.augmentation_type == 'builtIn_vae'):
           builtIn_modelComment = str(self.augmentation_type) + '/'
           if self.in_denoiseRecons_lossFlag:
@@ -615,7 +616,7 @@ class Resnet_trainer():
           label_tensor = label_tensor.to(device)
           test_output_logits = self.model(img_tensor)
           test_output_probs = torch.nn.Softmax(dim=1)(test_output_logits)
-          loss_val = self.loss_fn(test_output_probs, label_tensor)
+          loss_val = self.loss_fn(test_output_logits, label_tensor)
           avg_loss_metric_test.update(loss_val.item())
           accuracy_metric_test.update(test_output_probs, label_tensor)
 
