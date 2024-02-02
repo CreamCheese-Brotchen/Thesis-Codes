@@ -324,6 +324,7 @@ if __name__ == '__main__':
                                   in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                   lr_scheduler_flag = args.lr_scheduler_flag,
                                   AugmentedDataset_func = args.AugmentedDataset_func,
+                                  transfer_learning = args.transfer_learning,
                                 )
   else:
     model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
@@ -339,6 +340,7 @@ if __name__ == '__main__':
                                     in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
                                     lr_scheduler_flag = args.lr_scheduler_flag,
                                     AugmentedDataset_func = args.AugmentedDataset_func,
+                                    transfer_learning = args.transfer_learning,
                                   )
   
   model_trainer.train()
