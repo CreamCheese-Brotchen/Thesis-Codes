@@ -18,7 +18,7 @@ from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 import seaborn as sns
 import matplotlib
-import tensorflow as tf
+# import tensorflow as tf
 from more_itertools import flatten
 from torch.optim import lr_scheduler
 import itertools
