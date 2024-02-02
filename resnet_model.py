@@ -18,13 +18,14 @@ from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 import seaborn as sns
 import matplotlib
+import tensorflow as tf
 from more_itertools import flatten
 from torch.optim import lr_scheduler
 import itertools
 from collections import Counter
 import copy
 from pytorch_lightning import LightningModule, Trainer
-
+import pandas as pd
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
 from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel, create_augmented_dataloader
 from VAE_folder.VAE_model import VAE
@@ -364,40 +365,20 @@ class Resnet_trainer():
             self.optimizer.step()
             # self.optimizer.zero_grad()
           
-          # check_id = 2
-          # if (epoch in [11,12,13,14,15] or epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
-            # check_id = id[0]
-            # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
-            # indics = [j for j, x in enumerate(id) if x == check_id]
-            # # print('indice', indics)
-            # img_record = img_tensor[indics]
-            # # print(img_tensor[indics])
-            # writer.add_images('应该是有变化的图', img_record, epoch)
-          # elif (epoch in [31,32,33,34,35]) and (check_id in list(augmemtation_id) and check_id in id):
-          #   # check_id = id[0]
-          #   # indics = [i for i, x in enumerate(id) if x in list(augmemtation_id)]
-          #   indics = [j for j, x in enumerate(id) if x == check_id]
-          #   # print('indice', indics)
-          #   img_record = img_tensor[indics]
-          #   # print(img_tensor[indics])
-          #   writer.add_images('应该是有变化的图2', img_record, epoch)
-          
-            
-            
-          # built_denoiser, only starts after 10th epoch
-          if epoch >= self.start_epoch:
-            if self.augmentation_type == 'builtIn_denoiser':
-                denoiser_output = self.builtin_denoise_model(img_tensor)
-                self.model.eval()
-                denoiser_resnet_output = self.model(denoiser_output)
-                denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
-                if self.in_denoiseRecons_lossFlag:
-                  denoiser_loss = 0.6*denoiser_loss + 0.4*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
-                self.denoiser_optimizer.zero_grad()
-                denoiser_loss.backward()
-                self.denoiser_optimizer.step()
-                denoiserLoss_metric.update(denoiser_loss.item())
-            if self.augmentation_type == 'builtIn_vae':
+        # built_denoiser, only starts after 10th epoch
+          # if epoch >= self.start_epoch:
+          if self.augmentation_type == 'builtIn_denoiser':
+              denoiser_output = self.builtin_denoise_model(img_tensor)
+              self.model.eval()
+              denoiser_resnet_output = self.model(denoiser_output)
+              denoiser_loss = self.denoiser_loss(denoiser_resnet_output, label_tensor) # crossEntropyLoss
+              if self.in_denoiseRecons_lossFlag:
+                denoiser_loss = 0.6*denoiser_loss + 0.4*(torch.nn.MSELoss(size_average=False)(denoiser_output, img_tensor)/img_tensor.shape[0])
+              self.denoiser_optimizer.zero_grad()
+              denoiser_loss.backward()
+              self.denoiser_optimizer.step()
+              denoiserLoss_metric.update(denoiser_loss.item())
+          if self.augmentation_type == 'builtIn_vae':
                 (mean, logvar), vae_output = self.reset_vae(img_tensor)
                 self.model.eval()
                 vae_resnet_output = self.model(vae_output)
@@ -450,6 +431,8 @@ class Resnet_trainer():
                                                                                                 history_candidates_id=history_candidates_id, 
                                                                                                 # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
                                                                                                 randomCandidate_selection=self.random_candidateSelection)
+      # writer.add_histogram('id', currentEpoch_candidateId, epoch+1) 
+      writer.add_text('text id', str(currentEpoch_candidateId), epoch+1)
       # but only start to add them to the tensorboard at the start_epoch
       # if epoch >= self.start_epoch:
         # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
@@ -458,15 +441,7 @@ class Resnet_trainer():
       
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag
-          # generate/design the aug_epo list
-          # if (self.run_epochs >= 20) and (self.augmente_epochs_list is None): 
-          #     self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 10)  # every 10 epochs (20, 30, ..., 90), augment the dataset 
-          #     self.change_augmente_epochs_list = self.augmente_epochs_list + 1
-          # elif (self.run_epochs < 20) and (self.augmente_epochs_list is None):
-          #   self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
-          #   self.change_augmente_epochs_list = self.augmente_epochs_list + 1
-            
-                     
+                    
           # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
             if self.random_candidateSelection:

@@ -108,9 +108,10 @@ if __name__ == '__main__':
   ## dataset loader and define kernel_size
   ###########################
   if args.dataset in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CINIC10']:
-    mean = (0.47889522, 0.47227842, 0.43047404)
-    std = (0.24205776, 0.23828046, 0.25874835)
+
     if args.norm:
+      mean = (0.47889522, 0.47227842, 0.43047404)
+      std = (0.24205776, 0.23828046, 0.25874835)
       transforms_smallSize = transforms.Compose([
       transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
       transforms.transforms.ToTensor(),
