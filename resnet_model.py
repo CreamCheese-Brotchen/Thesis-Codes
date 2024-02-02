@@ -164,8 +164,9 @@ class Resnet_trainer():
       # history_meanLoss_candidates.append(0)
     #   history_entropy_candidates.append(0)
       currentEpoch_lossCandidate = np.nan
+      candidates_entropy = []
 
-    return history_candidates_id, currentEpoch_lossCandidate, candidates_id
+    return history_candidates_id, currentEpoch_lossCandidate, candidates_id, candidates_entropy
     # return history_num_candidates, history_meanLoss_candidates, history_candidates_id, history_entropy_candidates, candidates_id
 
 
@@ -401,7 +402,6 @@ class Resnet_trainer():
       if (self.AugmentedDataset_func !=1) and epoch in self.change_augmente_epochs_list and self.augmentation_type:
         # augmented_images, augmented_labels, augmented_ids = zip(*transformed_images)
         # stacked_images = torch.cat([img_tensor for img_tensor, _, _ in augmented_images], dim=0)
-        
         # stacked_labels = torch.stack(augmented_labels, dim=0)
         # stacked_ids = torch.stack(augmented_ids, dim=0)
         new_augmented_loader = torch.utils.data.TensorDataset(augmented_img_list, augmented_label_list, augmented_id_list)
@@ -418,7 +418,7 @@ class Resnet_trainer():
       # End of iteration -- running over once all data in the dataloader
       #################################################################
       writer.add_histogram('Entropy of all samples across the epoch', torch.tensor(list(flatten(entropy_list))), epoch+1)
-      if epoch >= self.start_epoch:
+      if epoch >= self.start_epoch and self.augmentation_type:
         if self.augmentation_type == 'builtIn_denoiser' or (self.augmentation_type == 'builtIn_vae'):
           builtIn_modelComment = str(self.augmentation_type) + '/'
           if self.in_denoiseRecons_lossFlag:
@@ -433,15 +433,16 @@ class Resnet_trainer():
 
       # start to collect the hard samples infos at the first epoch
       # history_candidates_id: storage all history candidates id cross epochs          //  if self.random_candidateSelection true, currentEpoch_candidateId are randomly choosed                                                              
-      history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
+      history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId, currentEpoch_candidateEnt = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
                                                                                                 history_candidates_id=history_candidates_id, 
                                                                                                 # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
                                                                                                 randomCandidate_selection=self.random_candidateSelection)
       # writer.add_histogram('id', currentEpoch_candidateId, epoch+1) 
-      writer.add_text('text id', str(currentEpoch_candidateId), epoch+1)
       # but only start to add them to the tensorboard at the start_epoch
       # if epoch >= self.start_epoch:
         # print(f'{len(currentEpoch_candidateId)} candidates at epoch {epoch+1}')
+      combined_list = [(t.item(), round(v.item(), 3)) for t, v in zip(currentEpoch_candidateId, currentEpoch_candidateEnt)]
+      writer.add_text('text id', str(combined_list), epoch+1)
       writer.add_scalar('Number of hard samples', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
       writer.add_scalar('Mean loss of hard samples', np.mean(currentEpoch_lossCandidate), epoch+1)
       
