@@ -49,6 +49,7 @@ class Resnet_trainer():
               in_denoiseRecons_lossFlag=False,
               lr_scheduler_flag = False,
               AugmentedDataset_func=1,
+              transfer_learning = False,
               ):                                     # built-in denoisers
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
@@ -59,7 +60,13 @@ class Resnet_trainer():
     self.l2 = l2
     self.loss_fn = loss_fn      # torch.nn.CrossEntropyLoss()
     self.individual_loss_fn = individual_loss_fn
-    self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) # tested for transfer-learning, torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
+    self.transfer_learning = transfer_learning
+    if self.transfer_learning:
+      print('可以！')
+      self.optimizer = optimizer(self.model.fc.parameters().parameters(), lr=self.lr, weight_decay=self.l2)
+    else:
+      self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) 
+    # tested for transfer-learning, torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     self.tensorboard_comment = tensorboard_comment
     self.lr_scheduler_flag = lr_scheduler_flag
     if self.lr_scheduler_flag: 

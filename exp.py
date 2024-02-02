@@ -53,6 +53,7 @@ if __name__ == '__main__':
   parser.add_argument('--addComment', default=None, help='Aditional comment to tensorboard')
   parser.add_argument('--accumulation_steps', type=int, default=None, help='Number of accumulation steps')
   parser.add_argument('--lr_scheduler_flag', action='store_true', help='Use lr scheduler')
+  parser.add_argument('--transfer_learning', action='store_true', help='Use transfer learning')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
   parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", 'simple_crop', 'simple_centerCrop', "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
@@ -95,9 +96,12 @@ if __name__ == '__main__':
     print('using pretrained resnet')
     # resnet = resnet18(pretrained=True)
     resnet = resnet18(weights='DEFAULT')
-    # for param in resnet.parameters():
-    #   param.requires_grad = False
-    resnet.fc = nn.Linear(resnet.fc.in_features, classes_num)
+    if args.transfer_learning:
+      args.addComment = 'transferLearning'
+      for param in resnet.parameters():
+        param.requires_grad = False
+    num_ftrs = resnet.fc.in_features
+    resnet.fc = nn.Linear(num_ftrs, classes_num)   
   else:
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)
