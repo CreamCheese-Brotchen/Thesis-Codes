@@ -126,7 +126,7 @@ class AugmentedDataset(Dataset):
             if self.tensorboard_epoch:
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)
-                comment = 'Resnet_Orig/Aug1 & builtIn_vae img'
+                comment = 'Resnet_Orig/Aug & builtIn_vae img'
                 if self.in_denoiseRecons_lossFlag:
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)   

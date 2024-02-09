@@ -40,7 +40,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
 
   parser.add_argument('--dataset', type=str, default='CIFAR10', choices=("MNIST", "CIFAR10", 'CINIC10', "FashionMNIST", "SVHN", "Flowers102", "Food101"), help='Dataset name')
-  parser.add_argument('--entropy_threshold', type=float, default=0.7, help='Entropy threshold')
+  parser.add_argument('--entropy_threshold', type=float, default=1.7, help='Entropy threshold')
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
@@ -122,7 +122,7 @@ if __name__ == '__main__':
       transforms.Normalize(mean, std),])
     else:
       transforms_smallSize = transforms.Compose([
-        transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
+        # transforms.Resize((32, 32), interpolation=InterpolationMode.BICUBIC),
         transforms.transforms.ToTensor(),
         ])
     

@@ -16,6 +16,8 @@ testPy_folder
 lightning_bolts/*
 SRMNIST
 GANs_folder/save_trained_model
+param_tune_folder/*
+param_tune_folder
 # GANs_folder/srgan_module.py
 # GANs_folder/srgan.py
 # GANs_folder/srresnet.py

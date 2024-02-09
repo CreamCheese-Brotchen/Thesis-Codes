@@ -6,8 +6,11 @@ import torch
 from torchvision import datasets
 import torch.utils.data as data_utils
 from torchvision import transforms
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, random_split
 from PIL import Image
+
+
+
 
 class IndexDataset(Dataset):
     def __init__(self, Dataset):
@@ -88,6 +91,9 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
   if dataset_name == 'CIFAR10': 
     data_train = datasets.CIFAR10(root = 'data', train = True, download=True, transform = transforms_train)         
     data_test = datasets.CIFAR10(root = 'data', train = False, download=True, transform = transforms_test)
+    train_size = int(len(data_train) * 0.8) # 80% training data
+    valid_size = len(data_train) - train_size
+    data_train, data_valid = random_split(data_train, [train_size, valid_size])
   
   if dataset_name == 'SVHN':
     data_train = datasets.SVHN(root = 'data', split='train', download=True, transform = transforms_train)
@@ -103,21 +109,26 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
 
   if dataset_name == 'CINIC10':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if device == 'cpu':
+    print(device)
+    if str(device) == 'cpu':
+      # cinic_directory = './data/CINIC-10'
       cinic_directory = 'D:/master_program/thesis/thesis-repo/data/CINIC-10'
     else:
       cinic_directory = './data/CINIC-10'
     data_train = datasets.ImageFolder(root=cinic_directory + '/train', transform=transforms_train)
     data_test = datasets.ImageFolder(root=cinic_directory + '/test', transform=transforms_test)
+    data_valid = datasets.ImageFolder(root=cinic_directory + '/valid', transform=transforms_train)
 
   # debug
   if reduce_dataset:
     data_train = data_utils.Subset(data_train, torch.arange(32))
-    data_test = data_utils.Subset(data_test, torch.arange(32))
+    data_valid = data_utils.Subset(data_valid, torch.arange(32))
+    data_test = data_utils.Subset(data_test, torch.arange(32))  
  
   # give an unique id to every sample in the dataset to track the hard samples
   if add_idx:
       data_train = IndexDataset(data_train)
+      data_valid = IndexDataset(data_valid)
       data_test = IndexDataset(data_test)
 
   if srgan:
@@ -129,7 +140,8 @@ def create_dataloaders(transforms_train, transforms_test, batch_size, dataset_na
 
   dataset_loaders = {
           'train' : torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True),
-          'test'  : torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
+          'valid' :torch.utils.data.DataLoader(data_valid, batch_size=batch_size, shuffle=True), 
+          'test'  : torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True),
           }
 
   return dataset_loaders
