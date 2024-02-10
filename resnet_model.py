@@ -609,6 +609,7 @@ class Resnet_trainer():
       test_id_allSamples = list(flatten(test_id_list))
       test_select_Candidates = [(idx,ent,loss) for (idx,ent,loss) in zip(test_id_allSamples,test_entropy_allSamples,test_loss_allSamples) if ent >= self.entropy_threshold]
       _, _, test_candidates_loss = list(zip(*test_select_Candidates))
+      test_candidates_loss = [loss.cpu().detach().numpy() for loss in test_candidates_loss]
 
 
       writer.add_text('test/loss', str(Avg_loss_Test), epoch+1)
