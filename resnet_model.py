@@ -63,7 +63,7 @@ class Resnet_trainer():
     self.individual_loss_fn = individual_loss_fn
     self.transfer_learning = transfer_learning
     if self.transfer_learning:
-      self.optimizer = optimizer(self.model.fc.parameters(), lr=self.lr, weight_decay=self.l2)
+      self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2) #optimizer(self.model.fc.parameters(), lr=self.lr, weight_decay=self.l2)
     else:
       self.optimizer = optimizer(self.model.parameters(), lr=self.lr, weight_decay=self.l2)
     # tested for transfer-learning, torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.l2)

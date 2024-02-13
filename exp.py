@@ -44,7 +44,6 @@ if __name__ == '__main__':
   parser.add_argument('--run_epochs', type=int, default=5, help='Number of epochs to run')
   parser.add_argument('--candidate_start_epoch', type=int, default=0, help='Epoch to start selecting candidates. Candidate calculation begind after the mentioned epoch')
   parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
-  parser.add_argument('--customLr_flag', action='store_true', help='Define the lr customly')
   parser.add_argument('--l2', type=float, default=1e-5, help='L2 regularization')
   parser.add_argument('--norm', action='store_true', help='Normalize the dataset')
   parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training (default: 64)')
@@ -147,10 +146,7 @@ if __name__ == '__main__':
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
 
   # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
-  if args.customLr_flag and args.lr_scheduler_flag==False:
-    suggested_lr = args.lr
-    print("using given custom_lr: ", suggested_lr)
-  elif args.lr_scheduler_flag:
+  if args.lr_scheduler_flag:
     suggested_lr = args.lr
   else:
     suggested_lr = 0.0001
