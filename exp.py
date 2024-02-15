@@ -96,7 +96,6 @@ if __name__ == '__main__':
     # resnet = resnet18(pretrained=True)
     resnet = resnet18(weights='DEFAULT')
     if args.transfer_learning:
-      args.addComment = 'transferLearning'
       for param in resnet.parameters():
         param.requires_grad = False
     num_ftrs = resnet.fc.in_features

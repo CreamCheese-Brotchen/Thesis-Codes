@@ -407,16 +407,16 @@ class Resnet_trainer():
 
       writer.add_scalar('Number of hard samples/Train', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
       writer.add_scalar('Mean loss of hard samples/Train', np.mean(currentEpoch_lossCandidate), epoch+1)
-      if not self.augmentation_type:
-        if len(currentEpoch_candidateId):
-          hard_image_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][0]
-          hard_class_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][1]
-          writer.add_image('Display/Hard sample', hard_image_display, epoch+1)
-          if len(currentEpoch_candidateId) > 1:
-            hard_image_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][0]
-            hard_class_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][1]          
-            writer.add_image('Display/Hard sample_01', hard_image_display_1, epoch+1)
-            writer.add_text('text id', str(hard_class_display) + str(hard_class_display_1), epoch+1)
+      # if not self.augmentation_type:
+      #   if len(currentEpoch_candidateId):
+          # hard_image_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][0]
+          # hard_class_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][1]
+          # writer.add_image('Display/Hard sample', hard_image_display, epoch+1)
+          # if len(currentEpoch_candidateId) > 1:
+          #   hard_image_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][0]
+          #   hard_class_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][1]          
+          #   writer.add_image('Display/Hard sample_01', hard_image_display_1, epoch+1)
+          #   writer.add_text('text id', str(hard_class_display) + str(hard_class_display_1), epoch+1)
 
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag
