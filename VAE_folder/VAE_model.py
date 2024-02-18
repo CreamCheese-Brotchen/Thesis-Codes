@@ -129,7 +129,8 @@ class VAE(nn.Module):
             # loss = nn.BCELoss(size_average=True)(x_reconstructed, x) 
             # loss = nn.BCELoss(reduction='mean')(x_reconstructed, x)
             # loss = nn.MSELoss()(x_reconstructed, x) / x.size(0)
-            loss = F.mse_loss(x_reconstructed, x, size_average=False)/ x.size(0)
+            # loss = F.mse_loss(x_reconstructed, x, size_average=False)/ x.size(0)
+            loss = F.mse_loss(x_reconstructed, x,reduction='sum') /x.size(0)
 
         return loss
 

@@ -8,7 +8,7 @@ import urllib.parse
 from argparse import ArgumentParser
 import torch
 from torch.nn import functional as F
-
+from torchvision import transforms
 
 
 #################################################################################################################
@@ -264,6 +264,9 @@ class AugmentedDataset2(Dataset):
                 if self.in_denoiseRecons_lossFlag:
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
+                # diff_value = torch.abs(original_data-data.detach())
+                # print('测试', diff_value.shape[:])
+                self.tf_writer.add_image('difference between orig & aug', torch.abs(original_data-data.detach()), self.tensorboard_epoch)
 
           if self.augmentation_type == 'builtIn_vae':
             original_data = data
@@ -275,6 +278,12 @@ class AugmentedDataset2(Dataset):
                 if self.in_denoiseRecons_lossFlag:
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)  
+                diff_img = torch.abs(original_data-data.detach()).mean(dim=0)
+                fig = plt.figure(figsize=diff_img.shape[:])
+                plt.imshow(diff_img, cmap='hot', interpolation='nearest')
+                plt.colorbar()                
+                self.tf_writer.add_figure('difference between orig & aug', fig, self.tensorboard_epoch)
+                plt.close(fig)
 
           if self.augmentation_type == 'GANs':
             original_data = data  

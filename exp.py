@@ -61,7 +61,7 @@ if __name__ == '__main__':
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
-  parser.add_argument('--AugmentedDataset_func', type=int, default=1, choices=(1,2,3), help='Choose the way to replace the original image with augmented img temporily or set')
+  parser.add_argument('--AugmentedDataset_func', type=int, default=3, choices=(1,2,3), help='Choose the way to replace the original image with augmented img temporily or set')
 
 
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')

@@ -356,8 +356,10 @@ class Resnet_trainer():
                 self.model.eval()
                 vae_resnet_output = self.model(vae_output)
                 vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
+                # print('测试', vae_resnet_loss)
                 if self.in_denoiseRecons_lossFlag:
                   vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
+                  print('测试', self.reset_vae.kl_divergence_loss(vae_output, img_tensor))
                   vae_resnet_loss = (1-self.inAug_lamda)*vae_resnet_loss + self.inAug_lamda*vae_loss
                 self.resnet_vae_optimizer.zero_grad()
                 vae_resnet_loss.backward()
