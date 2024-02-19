@@ -49,8 +49,8 @@ class Resnet_trainer():
               denoise_flag=False, denoise_model=None,                            # resConnect/Denoise for vae
               in_denoiseRecons_lossFlag=False,
               lr_scheduler_flag = False,
-              AugmentedDataset_func=1,
-              transfer_learning = False, inAug_lamda = 0.7,
+              AugmentedDataset_func=3,
+              transfer_learning = True, inAug_lamda = 0.7,
               ):                                     # built-in denoisers
     self.dataloader = dataloader
     self.entropy_threshold = entropy_threshold
@@ -102,7 +102,7 @@ class Resnet_trainer():
       imgs, _, _ = next(iter(self.dataloader['train']))
       image_size = imgs[0].size()
       print(f"image_size {image_size[1]}, num_channel {image_size[0]}"	)
-      self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=1024, loss_func=None).to(self.device)
+      self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=2048, loss_func=None).to(self.device)
       self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=self.lr)
       self.inVae_lrScheduler = lr_scheduler.ExponentialLR(self.resnet_vae_optimizer, gamma=0.9)
 
@@ -210,7 +210,6 @@ class Resnet_trainer():
     resnet_vae_metric = torchmetrics.MeanMetric().to(device)
 
     if self.AugmentedDataset_func == 1:
-      # define the training dataset -- temporartily replace the data with augmented data
       augmented_dataset = AugmentedDataset(
           dataset = self.dataloader['train'].dataset,
           target_idx_list = [],
@@ -356,11 +355,8 @@ class Resnet_trainer():
                 self.model.eval()
                 vae_resnet_output = self.model(vae_output)
                 vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
-                # print('测试', vae_resnet_loss)
-                if self.in_denoiseRecons_lossFlag:
-                  vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
-                  print('测试', self.reset_vae.kl_divergence_loss(vae_output, img_tensor))
-                  vae_resnet_loss = (1-self.inAug_lamda)*vae_resnet_loss + self.inAug_lamda*vae_loss
+                vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
+                vae_resnet_loss = (1-self.inAug_lamda)*vae_resnet_loss + self.inAug_lamda*vae_loss
                 self.resnet_vae_optimizer.zero_grad()
                 vae_resnet_loss.backward()
                 self.resnet_vae_optimizer.step()
@@ -389,11 +385,7 @@ class Resnet_trainer():
       # visualization of output of in_denoiser
       if epoch >= self.start_epoch and self.augmentation_type:
         if self.augmentation_type == 'builtIn_denoiser' or (self.augmentation_type == 'builtIn_vae'):
-          builtIn_modelComment = str(self.augmentation_type) + '/'
-          if self.in_denoiseRecons_lossFlag:
-            builtIn_modelComment += 'discr_reconstrLoss'
-          else:
-            builtIn_modelComment += 'discrLoss'
+          builtIn_modelComment = str(self.augmentation_type) + '/discr_reconstrLoss/'+ str(self.inAug_lamda)
           if self.augmentation_type == 'builtIn_denoiser':
             writer.add_scalar(builtIn_modelComment, denoiserLoss_metric.compute().cpu().numpy(), epoch+1)
           else:
@@ -421,10 +413,8 @@ class Resnet_trainer():
           #   writer.add_text('text id', str(hard_class_display) + str(hard_class_display_1), epoch+1)
 
       # if augmente
-      if self.augmentation_type: # or self.builtin_denoise_flag
-
-          # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
-          if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset
+      if self.augmentation_type: # or self.builtin_denoise_flag                                     
+          if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset, # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
             if self.random_candidateSelection:
               augmemtation_id = currentEpoch_candidateId
             # choose the hard samples according to the cross-entropy
@@ -461,7 +451,7 @@ class Resnet_trainer():
                 augmented_dataset.builtIn_denoise_model = self.builtin_denoise_model
                 augmented_dataset.in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag
                 # built-in vae
-                augmented_dataset.builtIn_vae_model = self.builtin_denoise_model
+                augmented_dataset.builtIn_vae_model = self.reset_vae
               ######################################################################################
               #### augMethod2
               ######################################################################################
@@ -481,7 +471,7 @@ class Resnet_trainer():
                   denoise_model=self.denoise_model,
                   builtIn_denoise_model = self.builtin_denoise_model,
                   in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag,
-                  builtIn_vae_model = self.builtin_denoise_model,
+                  builtIn_vae_model = self.reset_vae,
                 )
                 train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
                 # test_dataloader =  torch.utils.data.DataLoader(create_augmented_dataloader(train_dataloader), batch_size=self.batch_size, shuffle=False)
@@ -504,7 +494,7 @@ class Resnet_trainer():
                   denoise_model=self.denoise_model,
                   builtIn_denoise_model = self.builtin_denoise_model,
                   in_denoiseRecons_lossFlag = self.in_denoiseRecons_lossFlag,
-                  builtIn_vae_model = self.builtin_denoise_model,
+                  builtIn_vae_model = self.reset_vae,
                 )
                 train_dataloader = torch.utils.data.DataLoader(current_dataset, batch_size=self.batch_size, shuffle=True)
 
@@ -516,7 +506,6 @@ class Resnet_trainer():
             if self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
               current_dataset.target_idx_list = []
               train_dataloader = new_augmented_loader
-
 
 
           if (epoch>=self.augmente_epochs_list[0]) and (self.random_candidateSelection is False) and (self.k_epoch_sampleSelection != 0):

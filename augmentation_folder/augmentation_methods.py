@@ -244,6 +244,12 @@ class AugmentedDataset2(Dataset):
                 combined_image = torch.cat((original_data, data), dim=2)  # Concatenate images side by side
                 tf_imgComment = 'Resnet_Orig/Aug & ' + str(self.augmentation_type) + 'Aug'
                 self.tf_writer.add_image(tf_imgComment, combined_image, self.tensorboard_epoch)
+                # diff_img = torch.abs(original_data-data.detach()).mean(dim=0)
+                # fig = plt.figure(figsize=diff_img.shape[:])
+                # plt.imshow(diff_img, cmap='hot', interpolation='nearest')
+                # plt.colorbar()                
+                # self.tf_writer.add_figure('difference between orig & aug', fig, self.tensorboard_epoch)
+                # plt.close(fig)
 
           if self.augmentation_type == 'navie_denoiser':
             original_data = data
@@ -271,6 +277,7 @@ class AugmentedDataset2(Dataset):
           if self.augmentation_type == 'builtIn_vae':
             original_data = data
             data  = self.builtIn_vae_model.get_singleImg(data.to(self.builtIn_vae_model.device)).to(original_data.device)  
+            data = data.squeeze(0)
             if self.tensorboard_epoch:
               if idx in self.target_idx_list[-1]:
                 combined_image = torch.cat((original_data, data.detach()), dim=2)

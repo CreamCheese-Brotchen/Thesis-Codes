@@ -167,7 +167,7 @@ def boardWriter_generator(args):
   if args.reduce_dataset:
     resnet_comment.append(' Debug')
   if args.pretrained_flag:
-    resnet_comment.append(' Pretrained')
+    resnet_comment.append('Pretrained')
   resnet_comment.append(args.dataset)
 
 
