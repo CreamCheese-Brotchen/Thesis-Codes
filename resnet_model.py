@@ -98,13 +98,13 @@ class Resnet_trainer():
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
     self.random_candidateSelection = random_candidateSelection
     self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    if self.augmentation_type == 'builtIn_vae':
-      imgs, _, _ = next(iter(self.dataloader['train']))
-      image_size = imgs[0].size()
-      print(f"image_size {image_size[1]}, num_channel {image_size[0]}"	)
-      self.reset_vae = VAE(image_size=image_size[1], channel_num=image_size[0], kernel_num=256, z_size=2048, loss_func=None).to(self.device)
-      self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=self.lr)
-      self.inVae_lrScheduler = lr_scheduler.ExponentialLR(self.resnet_vae_optimizer, gamma=0.9)
+    # if self.augmentation_type == 'builtIn_vae':
+    # imgs, _, _ = next(iter(self.dataloader['train']))
+    # image_size = imgs[0].size()
+    # print(f"image_size {image_size[1]}, num_channel {image_size[0]}"	)
+    self.reset_vae = VAE(image_size=32, channel_num=3, kernel_num=256, z_size=2048, loss_func=None).to(self.device)
+    self.resnet_vae_optimizer = torch.optim.Adam(self.reset_vae.parameters(), lr=self.lr)
+    self.inVae_lrScheduler = lr_scheduler.ExponentialLR(self.resnet_vae_optimizer, gamma=0.9)
 
   def train_builtIn_denoiser(self, curentIter, currentIter_resnetLoss, img):
     # print(f"currentIter_loss {currentIter_loss}")

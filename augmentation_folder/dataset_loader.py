@@ -194,7 +194,9 @@ def boardWriter_generator(args):
   elif args.augmentation_type == 'navie_denoiser':
     resnet_comment.append(f" navieDenoiser")
   elif args.augmentation_type == 'builtIn_vae':
-    resnet_comment.append(f" builtIn_vae")
+    builtIn_vae_comment = " builtIn_vae_lamda" + str(args.inAug_lamda)
+    resnet_comment.append(builtIn_vae_comment)
+    
   else:
     resnet_comment.append(f" noAug")
 
@@ -228,7 +230,7 @@ def boardWriter_generator(args):
   if not args.augmentation_type:
     pass 
   else:
-    resnet_comment.append(f"augDataloader_method{ args.AugmentedDataset_func}")
+    resnet_comment.append(f"augMethod{args.AugmentedDataset_func}")
 
   vae_comment = []
   if args.augmentation_type == 'vae':

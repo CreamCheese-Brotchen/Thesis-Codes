@@ -62,6 +62,7 @@ if __name__ == '__main__':
   parser.add_argument('--k_epoch_sampleSelection', type=int, default=3, help='Number of epochs to select the common candidates')
   parser.add_argument('--augmente_epochs_list', type=list, default=None, help='certain epoch to augmente the dataset')
   parser.add_argument('--AugmentedDataset_func', type=int, default=3, choices=(1,2,3), help='Choose the way to replace the original image with augmented img temporily or set')
+  parser.add_argument('--inAug_lamda', type=float, default=0.7, help='loss scale lambda')
 
 
   parser.add_argument('--residualConnection_flag', action='store_true', help='Use residual connection')
@@ -305,37 +306,38 @@ if __name__ == '__main__':
 
 
   ############################
-  if args.pretrained_flag:
-    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs), start_epoch=args.candidate_start_epoch,
-                                  model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
-                                  augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
-                                  augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                  lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
-                                  k_epoch_sampleSelection=args.k_epoch_sampleSelection,
-                                  augmente_epochs_list=args.augmente_epochs_list,
-                                  random_candidateSelection=args.random_candidateSelection, 
-                                  residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
-                                  denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
-                                  in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
-                                  lr_scheduler_flag = args.lr_scheduler_flag,
-                                  AugmentedDataset_func = args.AugmentedDataset_func,
-                                  transfer_learning = args.transfer_learning,
-                                )
-  else:
-    model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
-                                    model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
-                                    augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
-                                    augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                    lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
-                                    k_epoch_sampleSelection=args.k_epoch_sampleSelection,
-                                    augmente_epochs_list=args.augmente_epochs_list,
-                                    random_candidateSelection=args.random_candidateSelection, 
-                                    residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
-                                    denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
-                                    in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
-                                    lr_scheduler_flag = args.lr_scheduler_flag,
-                                    AugmentedDataset_func = args.AugmentedDataset_func,
-                                    transfer_learning = args.transfer_learning,
-                                  )
+  # if args.pretrained_flag:
+  model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs), start_epoch=args.candidate_start_epoch,
+                                model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
+                                augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
+                                augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
+                                lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
+                                k_epoch_sampleSelection=args.k_epoch_sampleSelection,
+                                augmente_epochs_list=args.augmente_epochs_list,
+                                random_candidateSelection=args.random_candidateSelection, 
+                                residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
+                                denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
+                                in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
+                                lr_scheduler_flag = args.lr_scheduler_flag,
+                                AugmentedDataset_func = args.AugmentedDataset_func,
+                                transfer_learning = args.transfer_learning,
+                                inAug_lamda=args.inAug_lamda,
+                              )
+  # else:
+  #   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=args.run_epochs, start_epoch=args.candidate_start_epoch,
+  #                                   model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
+  #                                   augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
+  #                                   augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
+  #                                   lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
+  #                                   k_epoch_sampleSelection=args.k_epoch_sampleSelection,
+  #                                   augmente_epochs_list=args.augmente_epochs_list,
+  #                                   random_candidateSelection=args.random_candidateSelection, 
+  #                                   residual_connection_flag=args.residualConnection_flag, residual_connection_method=args.residual_connection_method,
+  #                                   denoise_flag=args.denoise_flag, denoise_model=resnet_trainedDenoiser,
+  #                                   in_denoiseRecons_lossFlag = args.in_denoiseRecons_lossFlag,
+  #                                   lr_scheduler_flag = args.lr_scheduler_flag,
+  #                                   AugmentedDataset_func = args.AugmentedDataset_func,
+  #                                   transfer_learning = args.transfer_learning,
+  #                                 )
   
   model_trainer.train()
