@@ -1,7 +1,7 @@
 # import matplotlib.pyplot as plt
 # import numpy as np
 # import matplotlib
-import pandas as pd
+# import pandas as pd
 import torch
 # import torchvision
 import argparse
@@ -16,7 +16,7 @@ from torchvision.models import resnet18, ResNet18_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 # from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib
+# import matplotlib
 from more_itertools import flatten
 import torch.nn as nn
 from torch.optim import lr_scheduler
