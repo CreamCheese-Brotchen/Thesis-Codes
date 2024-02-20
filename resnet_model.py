@@ -1,10 +1,6 @@
-import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib
 import pandas as pd
 import torch
-import torchvision
-import argparse
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 import torch.utils.data as data_utils
@@ -16,16 +12,12 @@ from torchvision.models import resnet18, ResNet18_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
-import seaborn as sns
-from collections import Counter
 import matplotlib
 # import tensorflow as tf
 from more_itertools import flatten
 from torch.optim import lr_scheduler
-import itertools
-from collections import Counter
-import copy
-from pytorch_lightning import LightningModule, Trainer
+# import itertools
+# from collections import Counter
 import pandas as pd
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
 from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel, create_augmented_dataloader
