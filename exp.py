@@ -90,8 +90,8 @@ if __name__ == '__main__':
   classes_num = model_numClasses(args.dataset)
   if args.pretrained_flag:
     print('using pretrained resnet')
-    # resnet = resnet18(pretrained=True)
-    resnet = resnet18(weights='DEFAULT')
+    resnet = resnet18(pretrained=True)
+    # resnet = resnet18(weights='DEFAULT')
     if args.transfer_learning:
       for param in resnet.parameters():
         param.requires_grad = False
