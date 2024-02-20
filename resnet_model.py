@@ -386,10 +386,18 @@ class Resnet_trainer():
 
       # start to collect the hard samples infos at the first epoch
       # history_candidates_id: storage all history candidates id cross epochs          //  if self.random_candidateSelection true, currentEpoch_candidateId are randomly choosed
-      history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId, currentEpoch_candidateEnt = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
+      if self.random_candidateSelection:
+        _, _, random_currentEpoch_candidateId, _ = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
+                                                                              history_candidates_id=history_candidates_id,
+                                                                              randomCandidate_selection=self.random_candidateSelection)
+        history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId, currentEpoch_candidateEnt = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
+                                                                              history_candidates_id=history_candidates_id,
+                                                                              randomCandidate_selection=False)       
+      else:
+        history_candidates_id, currentEpoch_lossCandidate, currentEpoch_candidateId, currentEpoch_candidateEnt = self.selection_candidates(current_allId_list=id_list, current_allEnt_list=entropy_list, current_allLoss_list=all_individualLoss_list,
                                                                                                 history_candidates_id=history_candidates_id,
                                                                                                 # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
-                                                                                                randomCandidate_selection=self.random_candidateSelection)
+                                                                                                randomCandidate_selection=False)
 
       writer.add_scalar('Number of hard samples/Train', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
       writer.add_scalar('Mean loss of hard samples/Train', np.mean(currentEpoch_lossCandidate), epoch+1)
@@ -408,7 +416,7 @@ class Resnet_trainer():
       if self.augmentation_type: # or self.builtin_denoise_flag                                     
           if epoch in self.augmente_epochs_list: # when current_epoch is at 10th, 20th, ..., 90th epoch, augmentate the dataset, # Augmentation_Method, if augmente at j_th; passing hardsamples infor to the augmentation_method()
             if self.random_candidateSelection:
-              augmemtation_id = currentEpoch_candidateId
+              augmemtation_id = random_currentEpoch_candidateId
             # choose the hard samples according to the cross-entropy
             else:
               if self.k_epoch_sampleSelection!=0:  # if you choose to use hard samples over previous k epochs, or use the lastest epoch's hard samples (self.k_epoch_sampleSelection=0)
@@ -535,7 +543,7 @@ class Resnet_trainer():
                                                                                                 current_allLoss_list= valid_all_individualLoss_list,
                                                                                                 history_candidates_id= valid_history_candidates_id,
                                                                                                 # history_entropy_candidates=history_entropy_candidates, history_num_candidates=history_num_candidates, history_meanLoss_candidates=history_meanLoss_candidates,
-                                                                                                randomCandidate_selection=self.random_candidateSelection)
+                                                                                                randomCandidate_selection=False)
 
         writer.add_scalar('Number of hard samples/Valid', len(valid_currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
         writer.add_scalar('Mean loss of hard samples/Valid', np.mean(valid_currentEpoch_lossCandidate), epoch+1)
