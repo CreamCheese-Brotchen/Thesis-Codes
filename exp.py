@@ -5,9 +5,9 @@
 import torch
 # import torchvision
 import argparse
-from torchvision import datasets
-from torchvision.transforms import ToTensor
-import torch.utils.data as data_utils
+# from torchvision import datasets
+# from torchvision.transforms import ToTensor
+# import torch.utils.data as data_utils
 from torchvision import transforms
 # import torchmetrics
 from torch.utils.data import DataLoader, Dataset
@@ -30,7 +30,7 @@ from augmentation_folder.augmentation_methods import simpleAugmentation_selectio
 from VAE_folder.VAE_model import VAE, train_model
 from resnet_model import Resnet_trainer
 from GANs_folder.GANs_model import Discriminator, Generator, gans_trainer, weights_init 
-from param_tune_folder.lrSearch import lrSearch
+# from param_tune_folder.lrSearch import lrSearch
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Resnet Training script')
