@@ -6,6 +6,7 @@ import torch
 # import torch.utils.data as data_utils
 # from torchvision import transforms
 import torchmetrics
+# import argparse
 # from torch.utils.data import DataLoader, Dataset
 from torch.autograd import Variable
 from torchvision.models import resnet18, ResNet18_Weights
@@ -16,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 # import tensorflow as tf
 from more_itertools import flatten
 from torch.optim import lr_scheduler
+# import torch.nn as nn
 # import itertools
 # from collections import Counter
 # import pandas as pd
@@ -201,7 +203,8 @@ class Resnet_trainer():
     denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
     resnet_vae_metric = torchmetrics.MeanMetric().to(device)
 
-    if self.AugmentedDataset_func == 1:
+    # passing augmentation model to the dataset
+    if self.AugmentedDataset_func == 1 and self.augmentation_type!=None:
       augmented_dataset = AugmentedDataset(
           dataset = self.dataloader['train'].dataset,
           target_idx_list = [],
@@ -213,9 +216,11 @@ class Resnet_trainer():
           tf_writer = [],
           )
       train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
-    elif self.AugmentedDataset_func == 2 or self.AugmentedDataset_func == 3:
+    elif (self.AugmentedDataset_func ==2 or self.AugmentedDataset_func ==3) and self.augmentation_type!=None:
       # competely replace the data with augmented data -- create new dataset
       train_dataloader = self.dataloader['train']
+    else:
+      pass
       # augmented_dataset = AugmentedDataset2(
       #     dataset = self.dataloader['train'].dataset,
       #     target_idx_list = [],
@@ -252,9 +257,11 @@ class Resnet_trainer():
 
 
       self.model.train()
+      
       if not self.augmentation_type:
         for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
           self.model.train()
+          
           img_tensor = Variable(img_tensor).to(device)
           label_tensor = Variable(label_tensor).to(device)
           output_logits = self.model(img_tensor)
@@ -270,6 +277,7 @@ class Resnet_trainer():
           entropy_list.append(Categorical(logits=output_logits).entropy())    # calculate the entropy of samples at this iter
           id_list.append(id)                                                  # record the id order of samples at this iter
           all_individualLoss_list.append(loss_individual)
+          # writer.add_images('test/images', img_tensor, epoch)
           # class_list.append(label_tensor)
 
           self.optimizer.zero_grad()
@@ -316,6 +324,8 @@ class Resnet_trainer():
           id_list.append(id)                                                  # record the id order of samples at this iter
           all_individualLoss_list.append(loss_individual)
           # class_list.append(label_tensor)
+
+          writer.add_images('test/images', img_tensor, epoch)
 
           self.optimizer.zero_grad()
           if self.accumulation_steps:
@@ -610,3 +620,4 @@ class Resnet_trainer():
       print('Test_loss', Avg_loss_Test, 'Test_acc',Acc_Test)
 
     writer.close()
+

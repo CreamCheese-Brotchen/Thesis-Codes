@@ -51,7 +51,8 @@ if __name__ == '__main__':
   parser.add_argument('--transfer_learning', action='store_true', help='Use transfer learning')
   parser.add_argument('--random_candidateSelection', action='store_true', help='Randomly select candidates')
   
-  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", 'simple_crop', 'simple_centerCrop', "GANs", "navie_denoiser", 'builtIn_denoiser', 'builtIn_vae'), help='Augmentation type')
+  parser.add_argument('--augmentation_type', type=str, default=None, choices=("vae", "simple", 'simple_crop', 'simple_centerCrop', "GANs", "navie_denoiser", 'builtIn_denoiser',
+                                                                               'builtIn_vae'), help='Augmentation type')
   parser.add_argument('--simpleAugmentation_name', type=str, default=None, choices=("random_color", "center_crop", "gaussian_blur", "rotation",
                                                                                    "elastic_transform", "random_perspective", "random_resized_crop", 
                                                                                    "random_invert", "random_posterize", "rand_augment", "augmix"), help='Simple Augmentation name')
@@ -65,7 +66,6 @@ if __name__ == '__main__':
   parser.add_argument('--residual_connection_method', type=str, default='sum', choices=("sum", "mean"), help='Residual connection method')
   parser.add_argument('--denoise_flag', action='store_true', help='Use denoise model')
   parser.add_argument('--in_denoiseRecons_lossFlag', action='store_true', help='Use builtIn denoise model')
-  # parser.add_argument('--denoise_model', type=str, default=None, help='Denoise model')
 
   parser.add_argument('--vae_trainEpochs', type=int, default=100, help='Number of epochs to train vae')
   parser.add_argument('--vae_kernelNum', type=int, default=256, help='Number of kernels in the first layer of the VAE')
@@ -73,12 +73,6 @@ if __name__ == '__main__':
   parser.add_argument("--vae_lr", type=float, default=0.0001, help="VAE learning rate")
   parser.add_argument("--vae_weightDecay", type=float, default=1e-5, help="VAE Weight decay")
   parser.add_argument("--vae_lossFunc", default=False, help="Flag to use BCELoss for testing")  # not given loss_func, use original lossFunc 
-
-  parser.add_argument('--GANs_trainEpochs', type=int, default=10, help='Number of epochs to train GANs')
-  parser.add_argument('--GANs_latentDim', type=int, default=None, help='latent dim for GANs')
-  parser.add_argument('--GANs_lr', type=float, default=0.0001, help='learning rate for GANs')
-  parser.add_argument('--GANs_tensorboardComment', type=str, default='debug with GANs for resnet', help='tensorboard comment for GANs')
-  # parser.add_argument('--vaeLatent_GANs', action='store_true', help='use vae latent dim for GANs')
 
   args = parser.parse_args()
   print(f"Script Arguments: {args}", flush=True)
@@ -283,26 +277,13 @@ if __name__ == '__main__':
   if args.random_candidateSelection:
     print('randomly select candidates in this run')
 
-  # if args.denoise_flag:
-  #   print('using denoise model, starts to train the denoise model')
-  #   train_denoiseModel = DenoisingModel()
-  #   denoiser_optimizer = torch.optim.Adam(train_denoiseModel.parameters(), lr=0.0001)
-  #   for num in range(args.run_epochs):
-  #     for batch_id, (img_tensor, label_tensor, id) in enumerate(dataset_loaders['train']):
-  #       denoiser_optimizer.zero_grad()
-  #       denoised_img = train_denoiseModel(img_tensor)
-#       denoiser_loss = F.mse_loss(denoised_img, img_tensor, size_average=False) / img_tensor.size(0)
-  #       denoiser_loss.backward()
-  #       denoiser_optimizer.step()
-  #     if (num+1) in [20, 40, 60, 80, 100]:
-  #       print(f'epoch: {num+1}, loss: {denoiser_loss.item()}')
-  #   resnet_trainedDenoiser = train_denoiseModel
-  # else:
-  #   resnet_trainedDenoiser = None
-
+ 
 
   ############################
   # if args.pretrained_flag:
+  # from torchsummary import summary
+  # print(summary(resnet, input_size=(3, 32, 32)))
+  # print(resnet)
   model_trainer = Resnet_trainer(dataloader=dataset_loaders, num_classes=classes_num, entropy_threshold=args.entropy_threshold, run_epochs=(args.run_epochs), start_epoch=args.candidate_start_epoch,
                                 model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
                                 augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
