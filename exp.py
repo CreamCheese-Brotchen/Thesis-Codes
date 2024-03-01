@@ -82,15 +82,19 @@ if __name__ == '__main__':
   # dataloader & model define (pretrain or not)
   ###########################
   classes_num = model_numClasses(args.dataset)
-  if args.pretrained_flag:
-    print('using pretrained resnet')
+  if args.pretrained_flag and args.transfer_learning:
+    print('using pretrained resnet with transfer learning')
     # resnet = resnet18(pretrained=True)
     resnet = resnet18(weights='DEFAULT')
-    if args.transfer_learning:
-      for param in resnet.parameters():
-        param.requires_grad = False
+    for param in resnet.parameters():
+      param.requires_grad = False
     num_ftrs = resnet.fc.in_features
     resnet.fc = nn.Linear(num_ftrs, classes_num)   
+  elif args.pretrained_flag:
+    print('using pretrained resnet with no transfer learning')
+    resnet = resnet18(weights='DEFAULT')
+    num_ftrs = resnet.fc.in_features
+    resnet.fc = nn.Linear(num_ftrs, classes_num) 
   else:
     print('using non-pretrained resnet')
     resnet = resnet18(weights=None, num_classes=classes_num)

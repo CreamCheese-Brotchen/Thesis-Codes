@@ -355,6 +355,7 @@ class Resnet_trainer():
           if self.augmentation_type == 'builtIn_vae':
                 (mean, logvar), vae_output = self.reset_vae(img_tensor)
                 self.model.eval()
+                # with torch.no_grad:
                 vae_resnet_output = self.model(vae_output)
                 vae_resnet_loss = self.denoiser_loss(vae_resnet_output, label_tensor)   # crossEntropyLoss
                 vae_loss = self.reset_vae.reconstruction_loss(vae_output, img_tensor) + self.reset_vae.kl_divergence_loss(mean, logvar)
