@@ -285,12 +285,12 @@ class AugmentedDataset2(Dataset):
                 if self.in_denoiseRecons_lossFlag:
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)  
-                diff_img = torch.abs(original_data-data.detach()).mean(dim=0)
-                fig = plt.figure(figsize=diff_img.shape[:])
-                plt.imshow(diff_img, cmap='hot', interpolation='nearest')
-                plt.colorbar()                
-                self.tf_writer.add_figure('difference between orig & aug', fig, self.tensorboard_epoch)
-                plt.close(fig)
+                # diff_img = torch.abs(original_data-data.detach()).mean(dim=0)
+                # fig = plt.figure(figsize=diff_img.shape[:])
+                # plt.imshow(diff_img, cmap='hot', interpolation='nearest')
+                # plt.colorbar()                
+                # self.tf_writer.add_figure('difference between orig & aug', fig, self.tensorboard_epoch)
+                # plt.close(fig)
 
           if self.augmentation_type == 'GANs':
             original_data = data  

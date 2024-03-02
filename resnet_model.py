@@ -196,10 +196,8 @@ class Resnet_trainer():
     # basic train/test loss/accuracy
     avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
     accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
-    avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
-    accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
-
-    # built-in augmentation model
+    avg_loss_metric_valid = torchmetrics.MeanMetric().to(device)
+    accuracy_metric_valid = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
     denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
     resnet_vae_metric = torchmetrics.MeanMetric().to(device)
 
@@ -221,17 +219,6 @@ class Resnet_trainer():
       train_dataloader = self.dataloader['train']
     else:
       pass
-      # augmented_dataset = AugmentedDataset2(
-      #     dataset = self.dataloader['train'].dataset,
-      #     target_idx_list = [],
-      #     augmentation_type = self.augmentation_type,
-      #     augmentation_transforms = self.augmentation_transforms,
-      #     model = self.augmentation_model,
-      #     model_transforms = self.model_transforms,
-      #     tensorboard_epoch = [],  # NEW
-      #     tf_writer = [],
-      # )
-      # train_dataloader = torch.utils.data.DataLoader(augmented_dataset, batch_size=self.batch_size, shuffle=True)
 
     # tensorboard
     writer = SummaryWriter(comment=self.tensorboard_comment)
@@ -325,7 +312,7 @@ class Resnet_trainer():
           all_individualLoss_list.append(loss_individual)
           # class_list.append(label_tensor)
 
-          writer.add_images('test/images', img_tensor, epoch)
+          # writer.add_images('test/images', img_tensor, epoch)
 
           self.optimizer.zero_grad()
           if self.accumulation_steps:
@@ -539,8 +526,8 @@ class Resnet_trainer():
           valid_output_probs = torch.nn.Softmax(dim=1)(valid_output_logits)
           loss_val = self.loss_fn(valid_output_logits, label_tensor)
           loss_val_individual = self.individual_loss_fn(valid_output_logits, label_tensor)
-          avg_loss_metric_test.update(loss_val.item())
-          accuracy_metric_test.update(valid_output_probs, label_tensor)
+          avg_loss_metric_valid.update(loss_val.item())
+          accuracy_metric_valid.update(valid_output_probs, label_tensor)
 
 
           valid_entropy_list.append(Categorical(logits=valid_output_logits).entropy())    # calculate the entropy of samples at this iter
@@ -563,9 +550,9 @@ class Resnet_trainer():
       # end of one epoch
       #######################################################################
       average_loss_train_epoch = avg_loss_metric_train.compute().cpu().numpy()
-      average_loss_test_epoch = avg_loss_metric_test.compute().cpu().numpy()
+      average_loss_test_epoch = avg_loss_metric_valid.compute().cpu().numpy()
       average_accuracy_train_epoch = accuracy_metric_train.compute().item()
-      average_accuracy_test_epoch = accuracy_metric_test.compute().item()
+      average_accuracy_test_epoch = accuracy_metric_valid.compute().item()
 
       print('Epoch[{}/{}]: loss_train={:.4f}, loss_test={:.4f},  accuracy_train={:.3f}, accuracy_test={:.3f}'.format(epoch+1, self.run_epochs,
                                                                                                                     average_loss_train_epoch, average_loss_test_epoch,
@@ -578,13 +565,14 @@ class Resnet_trainer():
 
       avg_loss_metric_train.reset()
       accuracy_metric_train.reset()
-      avg_loss_metric_test.reset()
-      accuracy_metric_test.reset()
+      avg_loss_metric_valid.reset()
+      accuracy_metric_valid.reset()
 
       denoiserLoss_metric.reset()
       resnet_vae_metric.reset()
 
     # test
+    # end of epoch
     Avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
     Accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
     self.model.eval()

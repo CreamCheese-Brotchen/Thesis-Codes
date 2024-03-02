@@ -88,11 +88,13 @@ if __name__ == '__main__':
     resnet = resnet18(weights='DEFAULT')
     for param in resnet.parameters():
       param.requires_grad = False
+    resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
     num_ftrs = resnet.fc.in_features
     resnet.fc = nn.Linear(num_ftrs, classes_num)   
   elif args.pretrained_flag:
     print('using pretrained resnet with no transfer learning')
     resnet = resnet18(weights='DEFAULT')
+    resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
     num_ftrs = resnet.fc.in_features
     resnet.fc = nn.Linear(num_ftrs, classes_num) 
   else:
@@ -120,12 +122,12 @@ if __name__ == '__main__':
         ])
     
     dataset_loaders = create_dataloaders(transforms_smallSize, transforms_smallSize, args.batch_size, args.dataset, add_idx=True, reduce_dataset=args.reduce_dataset)
-    if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
-      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-      resnet.maxpool = torch.nn.Identity()
-    elif args.dataset in ['CINIC10']: 
-      resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-      resnet.maxpool = torch.nn.Identity()
+    # if args.dataset in ['MNIST', 'CIFAR10', 'FashionMNIST', 'SVHN']:
+    #   resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+    #   resnet.maxpool = torch.nn.Identity()
+    # elif args.dataset in ['CINIC10']: 
+      # resnet.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+      # resnet.maxpool = torch.nn.Identity()
   else:
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
@@ -138,12 +140,6 @@ if __name__ == '__main__':
 
   num_channel = dataset_loaders['train'].dataset[0][0].shape[0]
   image_size = dataset_loaders['train'].dataset[0][0].shape[1]
-
-  # find the best lr, datasetloader, model, trainer_params, min_lr=1e-08, max_lr=1, training_epochs=100, lrFinder_method='fit')
-  if args.lr_scheduler_flag:
-    suggested_lr = args.lr
-  else:
-    suggested_lr = 0.0001
 
   
   ############################
@@ -292,7 +288,7 @@ if __name__ == '__main__':
                                 model=resnet, loss_fn=torch.nn.CrossEntropyLoss(), individual_loss_fn=torch.nn.CrossEntropyLoss(reduction='none') ,optimizer= torch.optim.Adam, tensorboard_comment=resnet_boardComment,
                                 augmentation_type=augmentationType, augmentation_transforms=augmentationTransforms,
                                 augmentation_model=augmentationModel, model_transforms=augmentationTrainer,
-                                lr=suggested_lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
+                                lr=args.lr, l2=args.l2, batch_size=args.batch_size, accumulation_steps=args.accumulation_steps,  # lr -- suggested_lr
                                 k_epoch_sampleSelection=args.k_epoch_sampleSelection,
                                 augmente_epochs_list=args.augmente_epochs_list,
                                 random_candidateSelection=args.random_candidateSelection, 
