@@ -271,7 +271,6 @@ class AugmentedDataset2(Dataset):
                   comment+= '(totaLoss)'
                 self.tf_writer.add_image(comment, combined_image, self.tensorboard_epoch)
                 # diff_value = torch.abs(original_data-data.detach())
-                # print('测试', diff_value.shape[:])
                 self.tf_writer.add_image('difference between orig & aug', torch.abs(original_data-data.detach()), self.tensorboard_epoch)
 
           if self.augmentation_type == 'builtIn_vae':

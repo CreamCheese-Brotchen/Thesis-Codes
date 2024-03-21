@@ -1,34 +1,16 @@
 import numpy as np
-# import pandas as pd
 import torch
-# from torchvision import datasets
-# from torchvision.transforms import ToTensor
-# import torch.utils.data as data_utils
-# from torchvision import transforms
 import torchmetrics
-# import argparse
-# from torch.utils.data import DataLoader, Dataset
 from torch.autograd import Variable
 from torchvision.models import resnet18, ResNet18_Weights
-# from torchvision.models.feature_extraction import create_feature_extractor
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
-# import matplotlib
-# import tensorflow as tf
 from more_itertools import flatten
 from torch.optim import lr_scheduler
-# import torch.nn as nn
-# import itertools
-# from collections import Counter
-# import pandas as pd
 from augmentation_folder.dataset_loader import IndexDataset, create_dataloaders
 from augmentation_folder.augmentation_methods import simpleAugmentation_selection, AugmentedDataset, AugmentedDataset2, vae_augmentation, DenoisingModel, create_augmented_dataloader
 from VAE_folder.VAE_model import VAE
-# import random
-# from memory_profiler import profile
-# import sys 
 
-# renetIn_denoiser = DenoisingModel()
 
 class Resnet_trainer():
   def __init__(self, dataloader, num_classes, entropy_threshold, run_epochs, start_epoch, model,
@@ -70,6 +52,7 @@ class Resnet_trainer():
     self.augmentation_transforms = augmentation_transforms
     self.augmentation_model = augmentation_model
     self.model_transforms = model_transforms
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # replace the original as new dataset: 2 or temporily dataset1
     self.AugmentedDataset_func = AugmentedDataset_func
     # resConnect/Denoise for vae
@@ -78,7 +61,7 @@ class Resnet_trainer():
     self.denoise_flag = denoise_flag
     self.denoise_model = denoise_model
     # builtin_denoise
-    self.builtin_denoise_model = DenoisingModel()
+    self.builtin_denoise_model = DenoisingModel().to(self.device)
     self.denoiser_optimizer = torch.optim.Adam(self.builtin_denoise_model.parameters(), lr=self.lr)
     self.indenoiser_lrSceduler = lr_scheduler.ExponentialLR(self.denoiser_optimizer, gamma=0.9)
     self.denoiser_loss = torch.nn.CrossEntropyLoss()
@@ -91,7 +74,6 @@ class Resnet_trainer():
     self.augmente_epochs_list = augmente_epochs_list  # number of epochs for augmentation, list [20, 30, ...., 90]
     self.k_epoch_sampleSelection = k_epoch_sampleSelection
     self.random_candidateSelection = random_candidateSelection
-    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # if self.augmentation_type == 'builtIn_vae':
     # imgs, _, _ = next(iter(self.dataloader['train']))
     # image_size = imgs[0].size()
@@ -173,7 +155,6 @@ class Resnet_trainer():
     for j in range(len(lists_dict)):
       t1 = list(lists_dict.items())[j:]
       common_id = set.intersection(*dict(t1).values())
-      # print(j, common_id)
       if common_id:
         break
     return common_id
@@ -189,17 +170,15 @@ class Resnet_trainer():
             self.augmente_epochs_list =  np.arange(self.start_epoch, self.run_epochs, 2)  # debug mode, every 2 epochs, augment the dataset
             self.change_augmente_epochs_list = self.augmente_epochs_list + 1
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    self.model.to(device)
-    self.builtin_denoise_model.to(device)
+    self.model.to(self.device)
 
     # basic train/test loss/accuracy
-    avg_loss_metric_train = torchmetrics.MeanMetric().to(device)
-    accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
-    avg_loss_metric_valid = torchmetrics.MeanMetric().to(device)
-    accuracy_metric_valid = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
-    denoiserLoss_metric = torchmetrics.MeanMetric().to(device)
-    resnet_vae_metric = torchmetrics.MeanMetric().to(device)
+    avg_loss_metric_train = torchmetrics.MeanMetric().to(self.device)
+    accuracy_metric_train = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(self.device)
+    avg_loss_metric_valid = torchmetrics.MeanMetric().to(self.device)
+    accuracy_metric_valid = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(self.device)
+    denoiserLoss_metric = torchmetrics.MeanMetric().to(self.device)
+    resnet_vae_metric = torchmetrics.MeanMetric().to(self.device)
 
     # passing augmentation model to the dataset
     if self.AugmentedDataset_func == 1 and self.augmentation_type!=None:
@@ -222,22 +201,20 @@ class Resnet_trainer():
 
     # tensorboard
     writer = SummaryWriter(comment=self.tensorboard_comment)
-    print(f"Starting Training Run. Using device: {device}", flush=True)
+    print(f"Starting Training Run. Using device: {self.device}", flush=True)
 
     history_candidates_id = list()
     valid_history_candidates_id = list()
 
     for epoch in range(self.run_epochs):
 
+      # Define empty lists
       id_list = list()                  # id of all samples at each epoch, cleaned when the new epoch starts
       entropy_list = list()             # entropy of all samples at each epoch, histogram, cleaned when the new epoch starts
       all_individualLoss_list = list()  # loss of all samples at each epoch
-      # class_list = list()
-
       valid_id_list = list()                  # id of all samples at each epoch, cleaned when the new epoch starts
       valid_entropy_list = list()             # entropy of all samples at each epoch, histogram, cleaned when the new epoch starts
       valid_all_individualLoss_list = list()  # loss of all samples at each epoch
-
       test_entropy_list = list()             # entropy of all samples at each epoch, histogram, cleaned when the new epoch starts'
       test_id_list = list()                  # id of all samples at each epoch, cleaned when the new epoch starts
       test_all_individualLoss_list = list()
@@ -249,8 +226,8 @@ class Resnet_trainer():
         for batch_id, (img_tensor, label_tensor, id) in enumerate(self.dataloader['train']):
           self.model.train()
           
-          img_tensor = Variable(img_tensor).to(device)
-          label_tensor = Variable(label_tensor).to(device)
+          img_tensor = Variable(img_tensor).to(self.device)
+          label_tensor = Variable(label_tensor).to(self.device)
           output_logits = self.model(img_tensor)
 
           output_probs = torch.nn.Softmax(dim=1)(output_logits)
@@ -295,8 +272,8 @@ class Resnet_trainer():
             augmented_label_list = torch.cat([augmented_label_list, label_tensor], dim= 0)
             augmented_id_list = torch.cat([augmented_id_list, id], dim= 0)
 
-          img_tensor = Variable(img_tensor).to(device)
-          label_tensor = Variable(label_tensor).to(device)
+          img_tensor = Variable(img_tensor).to(self.device)
+          label_tensor = Variable(label_tensor).to(self.device)
           output_logits = self.model(img_tensor)
 
           output_probs = torch.nn.Softmax(dim=1)(output_logits)
@@ -399,16 +376,7 @@ class Resnet_trainer():
 
       writer.add_scalar('Number of hard samples/Train', len(currentEpoch_candidateId), epoch+1) # check the number of candidates at this epoch
       writer.add_scalar('Mean loss of hard samples/Train', np.mean(currentEpoch_lossCandidate), epoch+1)
-      # if not self.augmentation_type:
-      #   if len(currentEpoch_candidateId):
-          # hard_image_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][0]
-          # hard_class_display = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[0]][1]
-          # writer.add_image('Display/Hard sample', hard_image_display, epoch+1)
-          # if len(currentEpoch_candidateId) > 1:
-          #   hard_image_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][0]
-          #   hard_class_display_1 = self.dataloader['train'].dataset[list(currentEpoch_candidateId)[1]][1]          
-          #   writer.add_image('Display/Hard sample_01', hard_image_display_1, epoch+1)
-          #   writer.add_text('text id', str(hard_class_display) + str(hard_class_display_1), epoch+1)
+
 
       # if augmente
       if self.augmentation_type: # or self.builtin_denoise_flag                                     
@@ -520,8 +488,8 @@ class Resnet_trainer():
       self.model.eval()
       with torch.no_grad():
         for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['valid']):
-          img_tensor = img_tensor.to(device)
-          label_tensor = label_tensor.to(device)
+          img_tensor = img_tensor.to(self.device)
+          label_tensor = label_tensor.to(self.device)
           valid_output_logits = self.model(img_tensor)
           valid_output_probs = torch.nn.Softmax(dim=1)(valid_output_logits)
           loss_val = self.loss_fn(valid_output_logits, label_tensor)
@@ -571,15 +539,14 @@ class Resnet_trainer():
       denoiserLoss_metric.reset()
       resnet_vae_metric.reset()
 
-    # test
-    # end of epoch
-    Avg_loss_metric_test = torchmetrics.MeanMetric().to(device)
-    Accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(device)
+    # Test, end of epochs
+    Avg_loss_metric_test = torchmetrics.MeanMetric().to(self.device)
+    Accuracy_metric_test = torchmetrics.Accuracy(task="multiclass", num_classes=self.num_classes).to(self.device)
     self.model.eval()
     with torch.no_grad():
       for i, (img_tensor, label_tensor, idx) in enumerate(self.dataloader['test']):
-        img_tensor = img_tensor.to(device)
-        label_tensor = label_tensor.to(device)
+        img_tensor = img_tensor.to(self.device)
+        label_tensor = label_tensor.to(self.device)
         test_output_logits = self.model(img_tensor)
         test_output_probs = torch.nn.Softmax(dim=1)(test_output_logits)
         test_loss = self.loss_fn(test_output_logits, label_tensor)

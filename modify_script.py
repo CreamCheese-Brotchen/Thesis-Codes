@@ -36,24 +36,6 @@ def create_new_sh_content(args):
         {"--GANs_tensorboardComment " + str(args.GANs_tensorboardComment) if args.GANs_tensorboardComment else ""}\\
     '''
     return new_sh_content
-# --augmentation_type {args.augmentation_type}\\
-# {"--augmente_epochs_list " + args.augmente_epochs_list if args.augmente_epochs_list else ""}\\   # to check what would the the value behind the args.augmente_epochs_list
-        # --k_epoch_sampleSelection {args.k_epoch_sampleSelection}\\
-#   --augmente_epochs_list {args.augmente_epochs_list} \\
-            
-            
-#             --vae_accumulationSteps {args.vae_accumulationSteps} \\
-#             --vae_trainEpochs {args.vae_trainEpochs} \\
-            
-#             --GANs_trainEpochs {args.GANs_trainEpochs} \\
-#             --GANs_latentDim {args.GANs_latentDim} \\
-#             --GANs_lr {args.GANs_lr} \\
-#             --GANs_tensorboardComment "{args.GANs_tensorboardComment}" \\
-
-        # {"--GANs_trainEpochs " + args.GANs_trainEpochs if args.GANs_trainEpochs else ""}\\
-        # {"--GANs_latentDim " + args.GANs_latentDim if args.GANs_latentDim else ""}\\
-        # {"--GANs_lr " + args.GANs_lr if args.GANs_lr else ""}\\
-        # {"--GANs_tensorboardComment " + str(args.GANs_tensorboardComment) if args.GANs_tensorboardComment else "s"}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='create new sh file for experiment')
@@ -91,14 +73,6 @@ if __name__ == '__main__':
         file.write(new_sh_content)
     print(f"Updated the content of 'new_testScript.sh'")
 
-    # Submit the generated script using sbatch
-    # job_script = "new_testScript.sh"
-    # command = ["sbatch", job_script]
-    # subprocess.run(command)
-    # print("submitted new_testScript.sh")
 
-    # # Delete the script file after submission
-    # os.remove(job_script)
-    # print("deleted the new_testScript.sh after submission.")
 
 

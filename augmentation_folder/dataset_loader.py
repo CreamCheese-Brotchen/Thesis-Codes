@@ -1,7 +1,4 @@
-# import matplotlib.pyplot as plt
 import numpy as np
-# import matplotlib
-# import pandas as pd
 import torch
 from torchvision import datasets
 import torch.utils.data as data_utils
@@ -215,8 +212,8 @@ def boardWriter_generator(args):
     resnet_comment.append(f"norm")
   if args.lr_scheduler_flag:
     resnet_comment.append(f"lrScheduler")
-  if args.transfer_learning:
-    resnet_comment.append(f"transfer")
+  if args.freezeLayer_flag:
+    resnet_comment.append(f"freezeLayer")
 
   resnet_comment.extend([
     f"{ args.entropy_threshold}ent",

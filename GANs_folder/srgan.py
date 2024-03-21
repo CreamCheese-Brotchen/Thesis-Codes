@@ -233,9 +233,7 @@ def train_srresnet(srresnet, dataloader, device, lr=1e-4, run_epochs=10, tensorb
             hr_real = hr_real.to(device)
             lr_real = lr_real.to(device)
 
-            # Enable autocast to FP16 tensors (new feature since torch==1.6.0)
-            # If you're running older versions of torch, comment this out
-            # and use NVIDIA apex for mixed/half precision training
+            
             if has_autocast:
                 with torch.cuda.amp.autocast(enabled=(device=='cuda')):
                     hr_fake = srresnet(lr_real)
@@ -284,9 +282,6 @@ def train_srgan(generator, discriminator, dataloader, device, lr=1e-4, run_epoch
             hr_real = hr_real.to(device)
             lr_real = lr_real.to(device)
 
-            # Enable autocast to FP16 tensors (new feature since torch==1.6.0)
-            # If you're running older versions of torch, comment this out
-            # and use NVIDIA apex for mixed/half precision training
             if has_autocast:
                 with torch.cuda.amp.autocast(enabled=(device=='cuda')):
                     g_loss, d_loss, hr_fake = loss_fn(
